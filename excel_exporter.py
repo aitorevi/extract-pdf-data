@@ -79,8 +79,12 @@ class ExcelExporter:
         df = pd.DataFrame(self.datos)
 
         # Separar datos por estado (exitosos vs errores)
-        df_exitosos = df[~df.get('Error', pd.Series([False] * len(df))).notna()].copy()
-        df_errores = df[df.get('Error', pd.Series([False] * len(df))).notna()].copy()
+        if 'Error' in df.columns:
+            df_exitosos = df[df['Error'].isna()].copy()
+            df_errores = df[df['Error'].notna()].copy()
+        else:
+            df_exitosos = df.copy()
+            df_errores = pd.DataFrame()
 
         # Crear workbook
         wb = Workbook()
@@ -116,11 +120,19 @@ class ExcelExporter:
 
         # Información general
         row = 3
+        # Calcular facturas exitosas y con errores
+        if 'Error' in df.columns:
+            facturas_exitosas = len(df[df['Error'].isna()])
+            facturas_con_errores = len(df[df['Error'].notna()])
+        else:
+            facturas_exitosas = len(df)
+            facturas_con_errores = 0
+
         info_general = [
             ("Fecha de procesamiento:", datetime.now().strftime("%d/%m/%Y %H:%M:%S")),
             ("Total de facturas:", len(df)),
-            ("Facturas exitosas:", len(df[~df.get('Error', pd.Series([False] * len(df))).notna()])),
-            ("Facturas con errores:", len(df[df.get('Error', pd.Series([False] * len(df))).notna()])),
+            ("Facturas exitosas:", facturas_exitosas),
+            ("Facturas con errores:", facturas_con_errores),
         ]
 
         for etiqueta, valor in info_general:
@@ -231,7 +243,11 @@ class ExcelExporter:
         row += 2
 
         # Archivos con errores
-        df_errores = df[df.get('Error', pd.Series([False] * len(df))).notna()]
+        if 'Error' in df.columns:
+            df_errores = df[df['Error'].notna()]
+        else:
+            df_errores = pd.DataFrame()
+
         if not df_errores.empty:
             ws[f'A{row}'] = "Archivos con errores:"
             ws[f'A{row}'].font = Font(size=12, bold=True)
@@ -249,7 +265,13 @@ class ExcelExporter:
 
         for proveedor_id, total in proveedores.items():
             df_proveedor = df[df['Proveedor_ID'] == proveedor_id]
-            exitosas = len(df_proveedor[~df_proveedor.get('Error', pd.Series([False] * len(df_proveedor))).notna()])
+
+            # Contar exitosas: las que no tienen columna 'Error' o la tienen pero es NaN
+            if 'Error' in df_proveedor.columns:
+                exitosas = len(df_proveedor[df_proveedor['Error'].isna()])
+            else:
+                exitosas = total
+
             errores = total - exitosas
             porcentaje = round((exitosas / total) * 100, 1) if total > 0 else 0
 
