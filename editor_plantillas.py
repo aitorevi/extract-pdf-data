@@ -496,11 +496,18 @@ def main():
                 print(f"Error: {e}")
                 return
 
-    pdf_path = input("\nRuta del PDF: ").strip()
+    print("\nSelecciona el PDF de la factura...")
+    pdf_path = filedialog.askopenfilename(
+        title="Seleccionar PDF de factura",
+        initialdir="facturas",
+        filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+    )
 
-    if not os.path.exists(pdf_path):
-        print(f"Error: No se encontró {pdf_path}")
+    if not pdf_path:
+        print("No se seleccionó PDF")
         return
+
+    print(f"✓ PDF seleccionado: {os.path.basename(pdf_path)}")
 
     try:
         app = EditorPlantillas(pdf_path, plantilla_existente)
