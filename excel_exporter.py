@@ -148,13 +148,14 @@ class ExcelExporter:
                 ws.cell(row=row, column=col, value=valor)
 
         # Autoajustar columnas
+        from openpyxl.utils import get_column_letter
         for col_idx in range(1, 6):  # A hasta E
             max_length = 10  # Ancho mínimo
             for row_idx in range(1, ws.max_row + 1):
-                cell_value = ws.cell(row=row_idx, column=col_idx).value
-                if cell_value:
-                    max_length = max(max_length, len(str(cell_value)))
-            column_letter = ws.cell(row=1, column=col_idx).column_letter
+                cell = ws.cell(row=row_idx, column=col_idx)
+                if hasattr(cell, 'value') and cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            column_letter = get_column_letter(col_idx)
             ws.column_dimensions[column_letter].width = min(max_length + 2, 50)
 
     def _crear_hoja_datos(self, wb: Workbook, df: pd.DataFrame, nombre_hoja: str):
@@ -195,13 +196,14 @@ class ExcelExporter:
                     cell.fill = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
 
         # Autoajustar columnas
+        from openpyxl.utils import get_column_letter
         for col_idx in range(1, ws.max_column + 1):
             max_length = 10  # Ancho mínimo
             for row_idx in range(1, ws.max_row + 1):
-                cell_value = ws.cell(row=row_idx, column=col_idx).value
-                if cell_value:
-                    max_length = max(max_length, len(str(cell_value)))
-            column_letter = ws.cell(row=1, column=col_idx).column_letter
+                cell = ws.cell(row=row_idx, column=col_idx)
+                if hasattr(cell, 'value') and cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            column_letter = get_column_letter(col_idx)
             ws.column_dimensions[column_letter].width = min(max_length + 2, 30)
 
     def _crear_hoja_estadisticas(self, wb: Workbook, df: pd.DataFrame):

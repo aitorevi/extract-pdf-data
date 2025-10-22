@@ -47,14 +47,14 @@ Esta aplicación permite extraer datos específicos de facturas PDF de manera au
 cd extract-pdf-data
 
 # Instalar dependencias
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ### Paso 2: Verificar la Instalación
 
 ```bash
 # Verificar que todo esté correctamente instalado
-python main.py verificar
+python3 main.py verificar
 ```
 
 Si la instalación es correcta, verás:
@@ -67,7 +67,7 @@ OK Verificación completada.
 
 ```bash
 # Ejecutar demostración con datos de ejemplo
-python demo.py
+python3 demo.py
 ```
 
 Esto creará archivos de ejemplo y demostrará el funcionamiento básico.

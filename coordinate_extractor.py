@@ -151,16 +151,21 @@ class CoordinateExtractor:
         print("INSTRUCCIONES:")
         print("1. Clic y arrastra para seleccionar cada campo")
         print("2. Ingresa el nombre y tipo del campo en la consola")
-        print("3. Presiona 'q' para terminar y guardar")
+        print("3. Presiona 'q' o ESC para terminar y guardar")
         print("4. Presiona 'r' para reiniciar la imagen")
         print("5. Presiona 's' para guardar plantilla actual")
+        print("\nIMPORTANTE: Asegúrate de que la ventana de imagen esté activa (haz clic en ella)")
         print("-" * 40)
 
         while True:
             cv2.imshow('Selector de Coordenadas', self.img)
-            key = cv2.waitKey(1) & 0xFF
+            key = cv2.waitKey(100) & 0xFF  # Aumentado de 1 a 100ms para mejor detección
 
-            if key == ord('q'):
+            if key != 255:  # Si se presionó alguna tecla
+                print(f"Tecla presionada: {key} ('{chr(key) if 32 <= key <= 126 else '?'}')")
+
+            if key == ord('q') or key == 27:  # 'q' o ESC
+                print("Saliendo del modo de selección...")
                 break
             elif key == ord('r'):
                 # Reiniciar imagen
