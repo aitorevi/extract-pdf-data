@@ -1,0 +1,5 @@
+﻿Archivo;Proveedor_ID;Proveedor_Nombre;NIF_Proveedor;Fecha_Factura;Numero_Factura;Total_Factura;Base_Imponible;IVA;Fecha_Procesamiento;Error
+factura_suministros_a_001.pdf;DEMO_001;Suministros Demo S.L.;B12345678;15/03/2024;FAC-2024-001;1234.56;1020.30;214.26;2025-10-22 19:54:06;
+factura_suministros_a_002.pdf;DEMO_001;Suministros Demo S.L.;B12345678;20/03/2024;FAC-2024-002;856.33;708.00;148.33;2025-10-22 19:54:06;
+factura_proveedor_b_001.pdf;NO_IDENTIFICADO;;;;;;;;2025-10-22 19:54:06;Proveedor no identificado - plantilla no disponible
+factura_ejemplo_003.pdf;DEMO_001;Suministros Demo S.L.;B12345678;ERROR;FAC-2024-003;ERROR_PDF;ERROR_PDF;ERROR_PDF;2025-10-22 19:54:06;Archivo PDF corrupto o ilegible
