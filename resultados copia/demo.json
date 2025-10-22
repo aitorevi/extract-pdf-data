@@ -1,0 +1,53 @@
+{
+  "metadata": {
+    "fecha_exportacion": "2025-10-22T19:54:06.148701",
+    "total_facturas": 4,
+    "version": "1.0"
+  },
+  "facturas": [
+    {
+      "Archivo": "factura_suministros_a_001.pdf",
+      "Proveedor_ID": "DEMO_001",
+      "Proveedor_Nombre": "Suministros Demo S.L.",
+      "NIF_Proveedor": "B12345678",
+      "Fecha_Factura": "15/03/2024",
+      "Numero_Factura": "FAC-2024-001",
+      "Total_Factura": "1234.56",
+      "Base_Imponible": "1020.30",
+      "IVA": "214.26",
+      "Fecha_Procesamiento": "2025-10-22 19:54:06"
+    },
+    {
+      "Archivo": "factura_suministros_a_002.pdf",
+      "Proveedor_ID": "DEMO_001",
+      "Proveedor_Nombre": "Suministros Demo S.L.",
+      "NIF_Proveedor": "B12345678",
+      "Fecha_Factura": "20/03/2024",
+      "Numero_Factura": "FAC-2024-002",
+      "Total_Factura": "856.33",
+      "Base_Imponible": "708.00",
+      "IVA": "148.33",
+      "Fecha_Procesamiento": "2025-10-22 19:54:06"
+    },
+    {
+      "Archivo": "factura_proveedor_b_001.pdf",
+      "Proveedor_ID": "NO_IDENTIFICADO",
+      "Proveedor_Nombre": "",
+      "Error": "Proveedor no identificado - plantilla no disponible",
+      "Fecha_Procesamiento": "2025-10-22 19:54:06"
+    },
+    {
+      "Archivo": "factura_ejemplo_003.pdf",
+      "Proveedor_ID": "DEMO_001",
+      "Proveedor_Nombre": "Suministros Demo S.L.",
+      "NIF_Proveedor": "B12345678",
+      "Fecha_Factura": "ERROR",
+      "Numero_Factura": "FAC-2024-003",
+      "Total_Factura": "ERROR_PDF",
+      "Base_Imponible": "ERROR_PDF",
+      "IVA": "ERROR_PDF",
+      "Error": "Archivo PDF corrupto o ilegible",
+      "Fecha_Procesamiento": "2025-10-22 19:54:06"
+    }
+  ]
+}

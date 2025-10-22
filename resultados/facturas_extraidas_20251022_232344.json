@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "fecha_exportacion": "2025-10-22T23:23:44.204772",
+    "total_facturas": 1,
+    "version": "1.0"
+  },
+  "facturas": [
+    {
+      "Archivo": "HBS.pdf",
+      "Proveedor_ID": "B05529656",
+      "Proveedor_Nombre": "Homebed Spain S.L.",
+      "Fecha_Procesamiento": "2025-10-22 23:23:44",
+      "num-factura": "90/22335",
+      "fecha-factura": "17/10/2025",
+      "base": "272.32",
+      "iva": "57.19",
+      "total": "329.51"
+    }
+  ]
+}
