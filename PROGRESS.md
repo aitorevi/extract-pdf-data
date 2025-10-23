@@ -4,10 +4,10 @@
 
 ## 🎯 Estado Actual
 
-- **Rama actual**: `feature/test-pdf-extractor`
+- **Rama actual**: `main`
 - **Fase activa**: FASE 1 - Testing y Calidad
-- **Issue en progreso**: Issue #2 - Tests pdf_extractor.py ✅ COMPLETADO
-- **Próximo paso**: Crear PR de Issue #2, luego comenzar Issue #3
+- **Issues completados**: Issue #1 y #2 ✅ MERGED
+- **Próximo paso**: Comenzar Issue #3 - Tests para excel_exporter.py
 
 ## ✅ Completado
 
@@ -62,7 +62,7 @@
   - Integración (1 test)
 - [x] Fixtures actualizadas en conftest.py
 - [x] **Coverage alcanzado: 91% en pdf_extractor.py** ✅ (objetivo: 80%)
-- [ ] **PENDIENTE**: Crear PR en GitHub
+- [x] PR #2 creada y merged ✅
 
 **Tests**: 56 passed in 0.92s ✅
 
@@ -70,23 +70,18 @@
 - src/pdf_extractor.py: **91% coverage** (215 statements, 20 missing)
 - Missing lines: 394-421, 425 (función main() de testing)
 
+**Commits**:
+- `90c7a33` - Añadir tests unitarios completos para pdf_extractor.py
+- `4f99c51` - Merge con main, resolución de conflictos
+
 ## 🔄 En Progreso
 
-### Crear PR de Issue #2
-**Método**: GitHub CLI (gh) o GitHub Web
-
-**Título**: Tests unitarios para pdf_extractor.py - Issue #2
-
-**Descripción**: Ver template abajo
-
-**Labels**: `priority:high`, `type:testing`, `phase:1-testing`
+Nada actualmente. Listo para comenzar Issue #3.
 
 ## 📋 Próximos Pasos (en orden)
 
 ### Inmediato
-1. **Crear PR de Issue #2** (listo para crear)
-2. **Merge PR**
-3. **Comenzar Issue #3**: Tests unitarios para excel_exporter.py
+1. **Comenzar Issue #3**: Tests unitarios para excel_exporter.py
 
 ### Issue #3: Tests para excel_exporter.py
 **Branch**: `feature/test-excel-exporter` (próximo)
@@ -114,13 +109,13 @@ Ver detalles completos en `.decisions/2025-01/FASE1_ISSUES.md` Issue #3
 
 **Objetivo**: Alcanzar 80% de code coverage total
 
-**Issues**: 6 issues (1 completada, 5 pendientes)
+**Issues**: 6 issues (2 completadas, 4 pendientes)
 
-**Progreso**: 16.7% (1/6 issues)
+**Progreso**: 33.3% (2/6 issues)
 
 ### Estado de Issues Fase 1
 - ✅ Issue #1: Setup pytest (COMPLETADO - MERGED)
-- ✅ Issue #2: Tests pdf_extractor.py (COMPLETADO - PR PENDIENTE)
+- ✅ Issue #2: Tests pdf_extractor.py (COMPLETADO - MERGED)
 - ⏳ Issue #3: Tests excel_exporter.py (SIGUIENTE)
 - ⏳ Issue #4: Tests main.py
 - ⏳ Issue #5: Tests de integración
@@ -128,12 +123,14 @@ Ver detalles completos en `.decisions/2025-01/FASE1_ISSUES.md` Issue #3
 
 ## 🎯 Objetivos de Fase
 
-### FASE 1: Testing y Calidad (EN PROGRESO)
+### FASE 1: Testing y Calidad (EN PROGRESO - 33%)
 - [x] Setup pytest básico
-- [ ] Tests unitarios completos
+- [x] Tests pdf_extractor.py (91% coverage)
+- [ ] Tests excel_exporter.py
+- [ ] Tests main.py
 - [ ] Tests de integración
 - [ ] CI/CD con GitHub Actions
-- [ ] 80% code coverage
+- [ ] 80% code coverage total
 
 ### FASE 2: Arquitectura y Code Quality (PENDIENTE)
 - Refactorización de código
@@ -239,6 +236,6 @@ pytest -m unit
 
 ---
 
-**Última acción**: Completar Issue #2 con 56 tests y 91% coverage
-**Próxima acción requerida**: Crear PR de Issue #2 en GitHub
+**Última acción**: Issue #1 y #2 merged a main
+**Próxima acción requerida**: Comenzar Issue #3 - Tests para excel_exporter.py
 **Bloqueadores**: Ninguno
