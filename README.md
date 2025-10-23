@@ -105,6 +105,47 @@ python utils/ver_todas_palabras.py facturas/mi_factura.pdf
 python utils/copiar_estructura_plantilla.py
 ```
 
+## 🧪 Testing
+
+El proyecto incluye tests automatizados con pytest.
+
+### Ejecutar todos los tests
+```bash
+pytest
+```
+
+### Ejecutar tests con coverage
+```bash
+pytest --cov=src --cov-report=html
+```
+
+### Ejecutar solo tests unitarios
+```bash
+pytest -m unit
+```
+
+### Ejecutar solo smoke tests (rápidos)
+```bash
+pytest -m smoke
+```
+
+### Ver reporte de coverage
+```bash
+# Se genera automáticamente en htmlcov/
+# Abrir htmlcov/index.html en el navegador
+```
+
+### Estructura de tests
+```
+tests/
+├── __init__.py           # Package marker
+├── conftest.py          # Fixtures compartidas
+├── test_sample.py       # Tests de ejemplo
+├── test_pdf_extractor.py    # (próximamente)
+├── test_excel_exporter.py   # (próximamente)
+└── test_integration.py      # (próximamente)
+```
+
 ## 📖 Más Información
 
 Para más detalles, consulta la documentación en `.docs/`:
