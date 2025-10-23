@@ -117,12 +117,46 @@ cat .docs/COMANDOS.txt
 cat .docs/INSTRUCCIONES.txt
 ```
 
+## 🗺️ Roadmap y Planificación
+
+Este proyecto está en desarrollo activo. Consulta la planificación en `.decisions/`:
+
+- **[Plan de Acción](.decisions/2025-01/PLAN_DE_ACCION.md)** - Fases del proyecto y objetivos
+- **[Roadmap](.decisions/2025-01/ROADMAP.md)** - Timeline y milestones
+- **[GitHub Issues](.decisions/2025-01/GITHUB_ISSUES.md)** - Issues para crear en GitHub
+
+### Fases del Proyecto
+
+1. **FASE 1:** Testing y Calidad 🧪 (En planificación)
+2. **FASE 2:** Arquitectura y Code Quality 🏗️
+3. **FASE 3:** Corner Cases y Plantillas 🔧
+4. **FASE 4:** Organización de Archivos 📂
+5. **FASE 5:** Exportación y Campos 📊
+6. **FASE 6:** Mejoras de Distribución 🚀
+7. **FASE 7:** UI/UX 🎨
+
+Ver [.decisions/2025-01/PLAN_DE_ACCION.md](.decisions/2025-01/PLAN_DE_ACCION.md) para más detalles.
+
+## 🤝 Contribuir
+
+### Para Desarrolladores
+
+1. Revisa el [Plan de Acción](.decisions/2025-01/PLAN_DE_ACCION.md)
+2. Consulta las [Issues de GitHub](.decisions/2025-01/GITHUB_ISSUES.md)
+3. Lee los ADRs en `.decisions/` antes de hacer cambios grandes
+4. Ejecuta los tests antes de hacer commits (cuando estén implementados)
+
+### Reportar Issues
+
+Usa las plantillas en `.decisions/2025-01/GITHUB_ISSUES.md` para crear issues en GitHub.
+
 ## 🤝 Soporte
 
 Si encuentras problemas:
 1. Revisa `.docs/INSTRUCCIONES.txt` - Solución de problemas
-2. Ejecuta `python verificar.py` para diagnosticar
+2. Ejecuta `python scripts/verificar.py` para diagnosticar
 3. Verifica que Poppler esté instalado (carpeta `poppler/`)
+4. Consulta las issues de GitHub
 
 ## 📝 Licencia
 
