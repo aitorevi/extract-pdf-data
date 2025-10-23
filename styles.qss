@@ -1,0 +1,270 @@
+/* ============================================
+   ESTILOS PARA EDITOR DE PLANTILLAS PDF
+   Estilo CSS moderno para PyQt6
+   ============================================ */
+
+/* VENTANA PRINCIPAL */
+QMainWindow {
+    background-color: #f5f5f5;
+}
+
+/* PANEL LATERAL */
+#panelLateral {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 #2c3e50,
+        stop: 1 #34495e
+    );
+    border-left: 3px solid #1abc9c;
+}
+
+/* TÍTULO */
+QLabel#titulo {
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 15px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+}
+
+/* LABEL DE CAMPO SELECCIONADO */
+QLabel#campoSeleccionado {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 2px solid #ffc107;
+    border-radius: 8px;
+    padding: 15px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+QLabel#campoSeleccionado[estado="seleccionado"] {
+    background-color: #d4edda;
+    color: #155724;
+    border-color: #28a745;
+}
+
+QLabel#campoSeleccionado[estado="capturado"] {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border-color: #17a2b8;
+}
+
+QLabel#campoSeleccionado[estado="advertencia"] {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-color: #f5c6cb;
+}
+
+/* BOTONES PRINCIPALES */
+QPushButton {
+    font-size: 12px;
+    font-weight: bold;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    color: white;
+}
+
+QPushButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+QPushButton:pressed {
+    transform: translateY(0);
+}
+
+/* BOTÓN GUARDAR */
+QPushButton#btnGuardar {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 #28a745,
+        stop: 1 #218838
+    );
+    min-height: 50px;
+    font-size: 16px;
+}
+
+QPushButton#btnGuardar:hover {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 #218838,
+        stop: 1 #1e7e34
+    );
+}
+
+/* BOTÓN CARGAR PLANTILLA */
+QPushButton#btnCargar {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 #007bff,
+        stop: 1 #0056b3
+    );
+    min-height: 40px;
+}
+
+QPushButton#btnCargar:hover {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 #0056b3,
+        stop: 1 #004085
+    );
+}
+
+/* BOTÓN CAMBIAR PDF */
+QPushButton#btnCambiarPDF {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 #6f42c1,
+        stop: 1 #5a32a3
+    );
+    min-height: 40px;
+}
+
+QPushButton#btnCambiarPDF:hover {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 #5a32a3,
+        stop: 1 #4c2a85
+    );
+}
+
+/* BOTÓN SALIR */
+QPushButton#btnSalir {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 #dc3545,
+        stop: 1 #c82333
+    );
+    min-height: 40px;
+}
+
+QPushButton#btnSalir:hover {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 #c82333,
+        stop: 1 #bd2130
+    );
+}
+
+/* SEPARADOR */
+QLabel#separador {
+    background-color: rgba(255, 255, 255, 0.2);
+    min-height: 2px;
+    max-height: 2px;
+}
+
+/* TÍTULO SECCIÓN CAMPOS */
+QLabel#tituloCampos {
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    border-radius: 4px;
+}
+
+/* ÁREA DE SCROLL DE CAMPOS */
+QScrollArea {
+    border: none;
+    background-color: transparent;
+}
+
+QScrollArea > QWidget > QWidget {
+    background-color: transparent;
+}
+
+/* SCROLLBAR */
+QScrollBar:vertical {
+    background-color: rgba(255, 255, 255, 0.1);
+    width: 12px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+/* FRAME DE CAMPO INDIVIDUAL */
+QFrame#frameCampo {
+    background-color: white;
+    border-radius: 6px;
+    padding: 5px;
+    margin: 3px;
+}
+
+QFrame#frameCampo:hover {
+    background-color: #f8f9fa;
+}
+
+/* LABEL DE CAMPO (con coordenadas) */
+QLabel#labelCampo {
+    background-color: #28a745;
+    color: white;
+    font-weight: bold;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+/* LABEL DE CAMPO (sin coordenadas) */
+QLabel#labelCampoSin {
+    background-color: #dc3545;
+    color: white;
+    font-weight: bold;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+/* BOTÓN CAPTURAR */
+QPushButton#btnCapturar {
+    background-color: #007bff;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 6px 10px;
+    border-radius: 4px;
+    min-width: 80px;
+}
+
+QPushButton#btnCapturar:hover {
+    background-color: #0056b3;
+}
+
+/* BOTÓN EDITAR */
+QPushButton#btnEditar {
+    background-color: #fd7e14;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 6px 10px;
+    border-radius: 4px;
+    min-width: 80px;
+}
+
+QPushButton#btnEditar:hover {
+    background-color: #e56a0a;
+}
+
+/* CANVAS DE PDF (área central) */
+QScrollArea#canvasPDF {
+    background-color: white;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+}
+
+/* WIDGET DE IMAGEN */
+QLabel#imagenPDF {
+    background-color: white;
+}
