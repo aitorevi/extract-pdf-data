@@ -1,0 +1,48 @@
+========================================
+  COMANDOS RÁPIDOS - CHEAT SHEET
+========================================
+
+┌─────────────────────────────────────┐
+│  COMANDOS PRINCIPALES (3 pasos)     │
+└─────────────────────────────────────┘
+
+1. Verificar:     python verificar.py
+2. Editar:        python editor.py
+3. Extraer:       python extraer.py
+
+
+┌─────────────────────────────────────┐
+│  ARCHIVOS .BAT (doble clic)         │
+└─────────────────────────────────────┘
+
+• verificar.bat     → Verificar proyecto
+• editor.bat        → Abrir editor
+• extraer.bat       → Extraer datos
+
+
+┌─────────────────────────────────────┐
+│  FLUJO RÁPIDO                       │
+└─────────────────────────────────────┘
+
+Primera vez:
+  1. python verificar.py
+  2. python editor.py
+  3. Coloca PDFs en facturas/
+  4. python extraer.py
+
+Uso regular:
+  1. Coloca PDFs en facturas/
+  2. python extraer.py
+
+
+┌─────────────────────────────────────┐
+│  ALIAS DISPONIBLES                  │
+└─────────────────────────────────────┘
+
+editor.py          = editor_plantillas.py
+crear_plantilla.py = editor_plantillas.py
+extraer.py         = main.py procesar
+verificar.py       = main.py verificar
+
+
+¡Eso es todo! Solo 3 comandos simples.

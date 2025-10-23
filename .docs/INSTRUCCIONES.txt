@@ -1,0 +1,88 @@
+===============================================
+  EXTRACTOR DE DATOS DE FACTURAS PDF
+  Instrucciones Simplificadas
+===============================================
+
+COMANDOS SIMPLIFICADOS:
+-----------------------
+
+1. VERIFICAR (Primera vez):
+   python verificar.py
+   (o doble clic en: verificar.bat)
+
+2. EDITOR DE PLANTILLAS (Primera vez por cada tipo de factura):
+   python editor.py
+   (o doble clic en: editor.bat)
+   (también puedes usar: python crear_plantilla.py)
+
+3. EXTRAER DATOS:
+   python extraer.py
+   (o doble clic en: extraer.bat)
+
+
+FLUJO DE TRABAJO:
+----------------
+
+PASO 1: Verificar que todo está listo
+   → python verificar.py
+
+PASO 2: Crear plantillas (solo la primera vez)
+   → python editor.py
+   → Selecciona un PDF de ejemplo
+   → Marca las áreas de los campos
+   → Guarda la plantilla
+
+PASO 3: Colocar PDFs a procesar
+   → Copia tus facturas PDF en la carpeta: facturas/
+
+PASO 4: Extraer datos
+   → python extraer.py
+   → Los resultados se guardan en: resultados/
+
+
+COMANDOS ORIGINALES (avanzados):
+--------------------------------
+
+Ver ayuda completa:
+   python main.py ayuda
+
+Procesar solo a Excel:
+   python main.py procesar --formato excel
+
+Procesar solo a CSV:
+   python main.py procesar --formato csv
+
+
+ESTRUCTURA DE CARPETAS:
+-----------------------
+
+extract-pdf-data/
+├── facturas/          ← Coloca aquí tus PDFs
+├── plantillas/        ← Plantillas JSON (se crean automáticamente)
+├── resultados/        ← Excel/CSV/JSON generados
+├── editor.py          ← Script simplificado para editor de plantillas
+├── extraer.py         ← Script simplificado para extraer
+├── crear_plantilla.py ← Alias de editor.py
+└── verificar.py       ← Script simplificado para verificar
+
+
+SOLUCIÓN DE PROBLEMAS:
+---------------------
+
+Error: "No se encontraron plantillas"
+   → Ejecuta: python editor.py
+
+Error: "No se encontraron PDFs"
+   → Coloca archivos PDF en la carpeta: facturas/
+
+Error: "Poppler no instalado"
+   → Ya está instalado localmente, no deberías ver este error
+
+Error: "No se pudo cargar plantilla"
+   → Verifica que el archivo JSON en plantillas/ sea válido
+
+
+¿NECESITAS MÁS AYUDA?
+---------------------
+
+Consulta el archivo README.md para información detallada.
