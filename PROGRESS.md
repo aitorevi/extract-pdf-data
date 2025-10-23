@@ -4,10 +4,10 @@
 
 ## 🎯 Estado Actual
 
-- **Rama actual**: `feature/setup-pytest`
+- **Rama actual**: `feature/test-pdf-extractor`
 - **Fase activa**: FASE 1 - Testing y Calidad
-- **Issue en progreso**: Issue #1 - Setup pytest ✅ COMPLETADO
-- **Próximo paso**: Crear PR de Issue #1, luego comenzar Issue #2
+- **Issue en progreso**: Issue #2 - Tests pdf_extractor.py ✅ COMPLETADO
+- **Próximo paso**: Crear PR de Issue #2, luego comenzar Issue #3
 
 ## ✅ Completado
 
@@ -36,52 +36,73 @@
 - [x] README.md actualizado con sección de Testing
 - [x] Todos los cambios committed y pushed
 - [x] Plantillas de PR creadas
-- [ ] **PENDIENTE**: Crear PR en GitHub
+- [x] PR creada y merged ✅
 
 **Tests**: 8 passed in 0.35s ✅
 
 **Commits**:
 - `afa5076` - Setup completo de pytest con fixtures, tests y configuración
 - `388752b` - Añadir documentación de plantillas para PR
+- `d9dee25` - Añadir PROGRESS.md para seguimiento
+
+### Issue #2: Tests para pdf_extractor.py ✅
+- [x] Branch `feature/test-pdf-extractor` creado
+- [x] Análisis completo de src/pdf_extractor.py
+- [x] `tests/test_pdf_extractor.py` creado con 56 tests unitarios
+- [x] Tests para todas las funciones principales:
+  - Constructor y configuración
+  - Validación de plantillas (9 tests)
+  - Carga de plantillas (6 tests)
+  - Limpieza de campos: texto, fecha, numérico (12 tests)
+  - Procesamiento de campos (4 tests)
+  - Identificación de proveedores (4 tests)
+  - Extracción de datos (4 tests)
+  - Procesamiento de directorios (6 tests)
+  - Estadísticas (4 tests)
+  - Integración (1 test)
+- [x] Fixtures actualizadas en conftest.py
+- [x] **Coverage alcanzado: 91% en pdf_extractor.py** ✅ (objetivo: 80%)
+- [ ] **PENDIENTE**: Crear PR en GitHub
+
+**Tests**: 56 passed in 0.92s ✅
+
+**Coverage Detallado**:
+- src/pdf_extractor.py: **91% coverage** (215 statements, 20 missing)
+- Missing lines: 394-421, 425 (función main() de testing)
 
 ## 🔄 En Progreso
 
-### Crear PR de Issue #1
-**Método**: GitHub Web (gh CLI requiere permisos admin)
+### Crear PR de Issue #2
+**Método**: GitHub CLI (gh) o GitHub Web
 
-**Pasos**:
-1. Ir a: https://github.com/aitorevi/extract-pdf-data/pull/new/feature/setup-pytest
-2. Copiar título y descripción de `.decisions/2025-01/CREAR_PR_ISSUE1.md`
-3. Añadir labels: `priority:high`, `type:testing`, `phase:1-testing`
-4. Create Pull Request
-5. Merge (después de review opcional)
+**Título**: Tests unitarios para pdf_extractor.py - Issue #2
+
+**Descripción**: Ver template abajo
+
+**Labels**: `priority:high`, `type:testing`, `phase:1-testing`
 
 ## 📋 Próximos Pasos (en orden)
 
 ### Inmediato
-1. **Crear PR de Issue #1** (esperando acción del usuario)
-2. **Merge PR** (después de crear)
-3. **Comenzar Issue #2**: Tests unitarios para pdf_extractor.py
+1. **Crear PR de Issue #2** (listo para crear)
+2. **Merge PR**
+3. **Comenzar Issue #3**: Tests unitarios para excel_exporter.py
 
-### Issue #2: Tests para pdf_extractor.py
-**Branch**: `feature/test-pdf-extractor`
+### Issue #3: Tests para excel_exporter.py
+**Branch**: `feature/test-excel-exporter` (próximo)
 **Archivos a crear**:
-- `tests/test_pdf_extractor.py`
+- `tests/test_excel_exporter.py`
 
 **Tests a implementar**:
-- `test_cargar_plantillas_validas()`
-- `test_cargar_plantillas_vacias()`
-- `test_identificar_proveedor_encontrado()`
-- `test_identificar_proveedor_no_encontrado()`
-- `test_extraer_datos_factura_completa()`
-- `test_extraer_datos_campos_faltantes()`
-- `test_procesar_directorio_facturas()`
-- `test_validar_plantilla_valida()`
-- `test_validar_plantilla_invalida()`
+- Tests para exportación a Excel
+- Tests para exportación a CSV
+- Tests para exportación a JSON
+- Tests para validación de datos
+- Tests para manejo de errores
 
-**Objetivo**: 80% code coverage en `src/pdf_extractor.py`
+**Objetivo**: 80% code coverage en `src/excel_exporter.py`
 
-Ver detalles completos en `.decisions/2025-01/FASE1_ISSUES.md` Issue #2
+Ver detalles completos en `.decisions/2025-01/FASE1_ISSUES.md` Issue #3
 
 ### Issues Restantes de Fase 1
 - [ ] Issue #3: Tests para excel_exporter.py
@@ -98,9 +119,9 @@ Ver detalles completos en `.decisions/2025-01/FASE1_ISSUES.md` Issue #2
 **Progreso**: 16.7% (1/6 issues)
 
 ### Estado de Issues Fase 1
-- ✅ Issue #1: Setup pytest (COMPLETADO)
-- ⏳ Issue #2: Tests pdf_extractor.py (SIGUIENTE)
-- ⏳ Issue #3: Tests excel_exporter.py
+- ✅ Issue #1: Setup pytest (COMPLETADO - MERGED)
+- ✅ Issue #2: Tests pdf_extractor.py (COMPLETADO - PR PENDIENTE)
+- ⏳ Issue #3: Tests excel_exporter.py (SIGUIENTE)
 - ⏳ Issue #4: Tests main.py
 - ⏳ Issue #5: Tests de integración
 - ⏳ Issue #6: GitHub Actions CI/CD
@@ -203,20 +224,21 @@ pytest -m unit
 ## 📊 Métricas
 
 ### Testing
-- **Tests totales**: 8
-- **Tests pasando**: 8 (100%)
+- **Tests totales**: 64 (8 sample + 56 pdf_extractor)
+- **Tests pasando**: 64 (100%)
 - **Fixtures compartidas**: 13
-- **Coverage actual**: ~5% (solo test_sample.py)
-- **Coverage objetivo**: 80%
+- **Coverage actual**: 21% total (91% en pdf_extractor.py)
+- **Coverage objetivo**: 80% total
+- **Módulos testeados**: 1/3 módulos principales
 
 ### Código
 - **Archivos principales**: 5 archivos en `src/`
 - **Utilidades**: 4 archivos en `utils/`
 - **Scripts**: 3 archivos en `scripts/`
-- **Tests**: 1 archivo de test
+- **Tests**: 3 archivos de test (conftest, test_sample, test_pdf_extractor)
 
 ---
 
-**Última acción**: Commit de plantillas de PR
-**Próxima acción requerida**: Crear PR en GitHub web interface
-**Bloqueadores**: Ninguno (gh CLI es opcional)
+**Última acción**: Completar Issue #2 con 56 tests y 91% coverage
+**Próxima acción requerida**: Crear PR de Issue #2 en GitHub
+**Bloqueadores**: Ninguno

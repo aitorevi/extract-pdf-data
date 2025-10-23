@@ -66,26 +66,17 @@ def plantilla_valida():
             {
                 "nombre": "numero_factura",
                 "tipo": "texto",
-                "x0": 100,
-                "top": 100,
-                "x1": 200,
-                "bottom": 120
+                "coordenadas": [100, 100, 200, 120]  # [x0, top, x1, bottom]
             },
             {
                 "nombre": "fecha",
                 "tipo": "fecha",
-                "x0": 100,
-                "top": 130,
-                "x1": 200,
-                "bottom": 150
+                "coordenadas": [100, 130, 200, 150]
             },
             {
                 "nombre": "total",
                 "tipo": "numerico",
-                "x0": 100,
-                "top": 160,
-                "x1": 200,
-                "bottom": 180
+                "coordenadas": [100, 160, 200, 180]
             }
         ]
     }
