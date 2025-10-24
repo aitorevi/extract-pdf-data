@@ -92,18 +92,23 @@ class FacturaExtractorApp:
 
         # Solicitar información fiscal al usuario
         print("\nDatos fiscales para la exportación:")
-        trimestre = input("Ingresa el trimestre (Q1, Q2, Q3, Q4): ").strip().upper()
+        trimestre_input = input("Ingresa el trimestre (1, 2, 3 o 4): ").strip()
         año = input("Ingresa el año (ej: 2025): ").strip()
 
-        # Validar entrada de trimestre
-        if trimestre not in ['Q1', 'Q2', 'Q3', 'Q4']:
-            print(f"WARN Trimestre '{trimestre}' no válido. Usando valor vacío.")
-            trimestre = ""
+        # Validar entrada de trimestre (solo acepta 1, 2, 3 o 4)
+        if trimestre_input in ['1', '2', '3', '4']:
+            trimestre = f"{trimestre_input}T"
+            print(f"✓ Trimestre: {trimestre}")
+        else:
+            print(f"ERROR: Trimestre '{trimestre_input}' no válido. Debe ser 1, 2, 3 o 4.")
+            return False
 
         # Validar entrada de año
         if not año.isdigit() or len(año) != 4:
-            print(f"WARN Año '{año}' no válido. Usando valor vacío.")
-            año = ""
+            print(f"ERROR: Año '{año}' no válido. Debe ser un año de 4 dígitos (ej: 2025).")
+            return False
+
+        print(f"✓ Año: {año}")
 
         # Inicializar extractor con datos fiscales
         self.pdf_extractor = PDFExtractor(trimestre=trimestre, año=año)
