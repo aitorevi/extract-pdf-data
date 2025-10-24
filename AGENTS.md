@@ -17,7 +17,7 @@ Este documento describe el flujo de trabajo estándar que usamos para desarrolla
 - ✅ Confianza para refactorizar
 - ✅ Coverage alto de forma natural
 
-## 🔄 Flujo de Trabajo Estándar
+## 🔄 Flujo de Trabajo Estándar (12 Pasos)
 
 ### 1. Crear Issue en GitHub
 ```bash
@@ -145,7 +145,34 @@ gh issue comment N --body "✅ Solución implementada en PR #M"
 - Link al PR
 - Próximos pasos
 
-### 11. Review y Merge
+### 11. Actualizar PROGRESS.md
+
+**Añadir el progreso del issue completado:**
+
+```markdown
+### Issue #N: Título del Issue ✅
+- [x] Branch creado
+- [x] Tests implementados
+- [x] Código implementado
+- [x] PR creado y en revisión
+
+**Tests**: X/X passed ✅
+
+**Archivos modificados**:
+- archivo1.py - Descripción
+- archivo2.py - Descripción
+
+**Commits**:
+- `hash` - Descripción commit
+```
+
+**Actualizar secciones:**
+- `Estado Actual` - Última actualización, rama actual, próximo paso
+- `Completado` - Añadir el nuevo issue con detalles
+- `En Progreso` - Actualizar con PR en revisión
+- `Próximos Pasos` - Actualizar siguiente tarea
+
+### 12. Review y Merge
 
 - Revisar el PR (el usuario o colaboradores)
 - Aprobar cambios
@@ -338,6 +365,7 @@ Antes de crear un PR, verificar:
 - [ ] **Issue creado** y asignado
 - [ ] **PR creado** con descripción detallada
 - [ ] **Comentario en issue** con link al PR
+- [ ] **PROGRESS.md actualizado** con detalles del issue
 
 ## 📚 Recursos
 

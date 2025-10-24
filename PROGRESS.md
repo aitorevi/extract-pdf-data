@@ -1,13 +1,13 @@
 # 📊 Progreso del Proyecto
 
-**Última actualización**: 2025-01-23
+**Última actualización**: 2025-01-24
 
 ## 🎯 Estado Actual
 
-- **Rama actual**: `main`
-- **Fase activa**: FASE 1 - Testing y Calidad
-- **Issues completados**: Issue #1 y #2 ✅ MERGED
-- **Próximo paso**: Comenzar Issue #3 - Tests para excel_exporter.py
+- **Rama actual**: `feature/standardize-column-names`
+- **Fase activa**: FASE 5 - Exportación y Campos
+- **Issues completados**: Issue #1, #2 ✅ MERGED | Issue #3 ✅ EN REVISIÓN (PR #4)
+- **Próximo paso**: Revisar y mergear PR #4, luego continuar con Issue #4 - Tests para main.py
 
 ## ✅ Completado
 
@@ -74,30 +74,54 @@
 - `90c7a33` - Añadir tests unitarios completos para pdf_extractor.py
 - `4f99c51` - Merge con main, resolución de conflictos
 
+### Issue #3: Estandarizar nombres de columnas para Excel ✅
+- [x] Branch `feature/standardize-column-names` creado
+- [x] Issue #3 creado en GitHub
+- [x] Implementación de mapeo de campos en pdf_extractor.py
+- [x] Añadidos parámetros trimestre y año (input del usuario)
+- [x] Normalización de fechas al formato DD/MM/YYYY
+- [x] Filtrado de columnas estándar en excel_exporter.py
+- [x] 14 tests unitarios y de integración implementados
+- [x] Todos los tests pasando (14/14) ✅
+- [x] Documentación del flujo de trabajo en AGENTS.md
+- [x] PR #4 creado ✅
+- [x] Comentario en Issue #3 con solución
+
+**Columnas implementadas (en orden)**:
+1. CIF - Identificador fiscal
+2. FechaFactura - Fecha emisión (DD/MM/YYYY)
+3. Trimestre - Trimestre fiscal (Q1-Q4)
+4. Año - Año fiscal
+5. FechaVto - Fecha vencimiento (DD/MM/YYYY)
+6. NumFactura - Número de factura
+7. FechaPago - Fecha de pago (DD/MM/YYYY)
+8. Base - Base imponible
+9. ComPaypal - Comisión PayPal
+
+**Tests**: 14/14 passed ✅
+
+**Archivos modificados**:
+- `src/pdf_extractor.py` - Mapeo de campos, trimestre/año, normalización fechas
+- `src/excel_exporter.py` - Filtrado de columnas estándar
+- `src/main.py` - Input interactivo trimestre/año
+- `tests/test_column_standardization.py` - 14 tests (nuevo)
+- `AGENTS.md` - Documentación workflow TDD (nuevo)
+
+**Commits**:
+- `795a6b4` - Estandarizar nombres de columnas - Issue #3
+- `07add0c` - Añadir tests y normalización fechas DD/MM/YYYY
+- `ea9ee12` - Añadir documentación flujo de trabajo TDD - AGENTS.md
+
 ## 🔄 En Progreso
 
-Nada actualmente. Listo para comenzar Issue #3.
+**Issue #3** - PR #4 en revisión, pendiente de merge
 
 ## 📋 Próximos Pasos (en orden)
 
 ### Inmediato
-1. **Comenzar Issue #3**: Tests unitarios para excel_exporter.py
-
-### Issue #3: Tests para excel_exporter.py
-**Branch**: `feature/test-excel-exporter` (próximo)
-**Archivos a crear**:
-- `tests/test_excel_exporter.py`
-
-**Tests a implementar**:
-- Tests para exportación a Excel
-- Tests para exportación a CSV
-- Tests para exportación a JSON
-- Tests para validación de datos
-- Tests para manejo de errores
-
-**Objetivo**: 80% code coverage en `src/excel_exporter.py`
-
-Ver detalles completos en `.decisions/2025-01/FASE1_ISSUES.md` Issue #3
+1. **Revisar y mergear PR #4** (Issue #3)
+2. **Actualizar PROGRESS.md** tras merge
+3. **Comenzar Issue #4**: Tests unitarios para main.py
 
 ### Issues Restantes de Fase 1
 - [ ] Issue #3: Tests para excel_exporter.py
