@@ -392,6 +392,8 @@ class PDFExtractor:
         print(f"\n=== PROCESANDO {len(archivos_pdf)} FACTURAS ===")
 
         resultados = []
+        # Set para detectar duplicados: (CIF, NumFactura, FechaFactura)
+        facturas_procesadas = set()
 
         for archivo_pdf in archivos_pdf:
             ruta_completa = os.path.join(self.directorio_facturas, archivo_pdf)
@@ -403,6 +405,23 @@ class PDFExtractor:
             if proveedor_id:
                 try:
                     datos = self.extraer_datos_factura(ruta_completa, proveedor_id)
+
+                    # Verificar duplicados usando CIF + NumFactura + FechaFactura
+                    clave_duplicado = (
+                        datos.get('CIF', ''),
+                        datos.get('NumFactura', ''),
+                        datos.get('FechaFactura', '')
+                    )
+
+                    if clave_duplicado in facturas_procesadas:
+                        print(f"WARN Factura duplicada detectada (CIF: {datos.get('CIF')}, Num: {datos.get('NumFactura')}, Fecha: {datos.get('FechaFactura')})")
+                        # Marcar como duplicado en metadatos
+                        datos['_Duplicado'] = True
+                        datos['_Motivo_Duplicado'] = f"Ya existe factura con mismo CIF, NumFactura y FechaFactura"
+                    else:
+                        facturas_procesadas.add(clave_duplicado)
+                        datos['_Duplicado'] = False
+
                     resultados.append(datos)
                     print(f"OK Procesado exitosamente")
                 except Exception as e:
@@ -466,7 +485,8 @@ class PDFExtractor:
 
         total_facturas = len(self.resultados)
         facturas_con_error = sum(1 for r in self.resultados if '_Error' in r)
-        facturas_exitosas = total_facturas - facturas_con_error
+        facturas_duplicadas = sum(1 for r in self.resultados if r.get('_Duplicado', False))
+        facturas_exitosas = total_facturas - facturas_con_error - facturas_duplicadas
 
         # Estadísticas por proveedor
         proveedores = {}
@@ -484,6 +504,7 @@ class PDFExtractor:
         return {
             'total_facturas': total_facturas,
             'facturas_exitosas': facturas_exitosas,
+            'facturas_duplicadas': facturas_duplicadas,
             'facturas_con_error': facturas_con_error,
             'tasa_exito': round((facturas_exitosas / total_facturas) * 100, 2) if total_facturas > 0 else 0,
             'proveedores': proveedores,

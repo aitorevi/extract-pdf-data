@@ -143,6 +143,7 @@ class FacturaExtractorApp:
         print(f"\n=== RESUMEN DEL PROCESAMIENTO ===")
         print(f"Total facturas: {stats['total_facturas']}")
         print(f"Procesadas exitosamente: {stats['facturas_exitosas']} ({stats['tasa_exito']}%)")
+        print(f"Duplicadas (excluidas): {stats['facturas_duplicadas']}")
         print(f"Con errores: {stats['facturas_con_error']}")
         print(f"Plantillas usadas: {stats['plantillas_disponibles']}")
 
