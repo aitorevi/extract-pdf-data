@@ -285,20 +285,54 @@ class PDFExtractor:
         return texto.strip()
 
     def limpiar_fecha(self, texto: str) -> str:
-        """Limpia y normaliza campos de fecha."""
+        """
+        Limpia y normaliza campos de fecha al formato DD/MM/YYYY.
+
+        Args:
+            texto (str): Texto que contiene una fecha
+
+        Returns:
+            str: Fecha en formato DD/MM/YYYY o texto original si no se reconoce
+        """
+        from datetime import datetime
+
         texto = self.limpiar_texto(texto)
 
-        # Patrones comunes de fecha
+        # Intentar parsear diferentes formatos de fecha
+        formatos = [
+            '%d/%m/%Y',      # DD/MM/YYYY
+            '%d-%m-%Y',      # DD-MM-YYYY
+            '%Y/%m/%d',      # YYYY/MM/DD
+            '%Y-%m-%d',      # YYYY-MM-DD
+            '%d/%m/%y',      # DD/MM/YY
+            '%d-%m-%y',      # DD-MM-YY
+        ]
+
+        for formato in formatos:
+            try:
+                fecha_obj = datetime.strptime(texto.strip(), formato)
+                # Convertir siempre a DD/MM/YYYY
+                return fecha_obj.strftime('%d/%m/%Y')
+            except ValueError:
+                continue
+
+        # Si no se puede parsear, intentar extraer con regex
         patrones_fecha = [
             r'\d{1,2}[/-]\d{1,2}[/-]\d{4}',  # DD/MM/YYYY o DD-MM-YYYY
             r'\d{4}[/-]\d{1,2}[/-]\d{1,2}',  # YYYY/MM/DD o YYYY-MM-DD
-            r'\d{1,2}\s+de\s+\w+\s+de\s+\d{4}',  # DD de MMMM de YYYY
         ]
 
         for patron in patrones_fecha:
             match = re.search(patron, texto)
             if match:
-                return match.group()
+                fecha_encontrada = match.group()
+                # Intentar parsear lo encontrado
+                for formato in formatos:
+                    try:
+                        fecha_obj = datetime.strptime(fecha_encontrada, formato)
+                        return fecha_obj.strftime('%d/%m/%Y')
+                    except ValueError:
+                        continue
 
         return texto  # Devolver original si no se reconoce patrón
 
