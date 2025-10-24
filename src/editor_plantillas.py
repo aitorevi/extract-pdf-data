@@ -13,13 +13,12 @@ from tkinter import simpledialog, messagebox, filedialog
 from PIL import ImageTk
 
 
-# CAMPOS PREDEFINIDOS - Modifica esto según tus necesidades
+# CAMPOS PREDEFINIDOS - Campos a capturar del PDF
 CAMPOS_PREDEFINIDOS = [
-    {"nombre": "num-factura", "tipo": "texto"},
-    {"nombre": "fecha-factura", "tipo": "fecha"},
-    {"nombre": "base", "tipo": "numerico"},
-    {"nombre": "iva", "tipo": "numerico"},
-    {"nombre": "total", "tipo": "numerico"},
+    {"nombre": "FechaFactura", "tipo": "fecha"},
+    {"nombre": "FechaVto", "tipo": "fecha"},
+    {"nombre": "NumFactura", "tipo": "texto"},
+    {"nombre": "Base", "tipo": "numerico"},
 ]
 
 
@@ -151,8 +150,9 @@ class EditorPlantillas:
     def cargar_imagen_pdf(self):
         """Convierte el PDF a imagen."""
         print("Convirtiendo PDF a imagen...")
-        # Ruta de Poppler instalado localmente
-        poppler_path = os.path.join(os.path.dirname(__file__), "poppler", "Library", "bin")
+        # Ruta de Poppler instalado localmente (en la raíz del proyecto)
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        poppler_path = os.path.join(project_root, "poppler", "Library", "bin")
         imagenes = convert_from_path(self.pdf_path, dpi=150, poppler_path=poppler_path)
         self.imagen_original = imagenes[0]
         self.imagen = self.imagen_original.copy()
@@ -388,36 +388,41 @@ class EditorPlantillas:
 
         # Pedir información si es nueva
         if self.plantilla_cargada:
-            proveedor_id = self.plantilla_cargada.get('proveedor_id', '')
             nombre_proveedor = self.plantilla_cargada.get('nombre_proveedor', '')
-            print(f"Editando plantilla existente: {proveedor_id}")
+            cif_proveedor = self.plantilla_cargada.get('cif_proveedor', '')
+            nombre_archivo_inicial = self.plantilla_cargada.get('nombre_proveedor', '').replace(' ', '_').lower()
+            print(f"Editando plantilla existente: {nombre_proveedor}")
             nombre_archivo = simpledialog.askstring("Guardar",
                                                  "Nombre del archivo (sin .json):",
-                                                 initialvalue=proveedor_id,
+                                                 initialvalue=nombre_archivo_inicial,
                                                  parent=self.root)
         else:
             print("Creando plantilla nueva")
-            nombre_archivo = simpledialog.askstring("Nombre de Plantilla",
-                                                    "Nombre del archivo (sin .json):",
-                                                    parent=self.root)
-            if not nombre_archivo:
-                print("Guardado cancelado - sin nombre")
-                return
-
-            proveedor_id = simpledialog.askstring("ID Proveedor",
-                                                 "ID del proveedor:",
-                                                 parent=self.root)
             nombre_proveedor = simpledialog.askstring("Nombre Proveedor",
                                                       "Nombre del proveedor:",
                                                       parent=self.root)
+            if not nombre_proveedor:
+                print("Guardado cancelado - sin nombre de proveedor")
+                return
+
+            cif_proveedor = simpledialog.askstring("CIF Proveedor",
+                                                   "CIF del proveedor:",
+                                                   parent=self.root)
+
+            # Sugerir nombre de archivo basado en el nombre del proveedor
+            nombre_archivo_sugerido = nombre_proveedor.replace(' ', '_').lower()
+            nombre_archivo = simpledialog.askstring("Nombre de Plantilla",
+                                                    "Nombre del archivo (sin .json):",
+                                                    initialvalue=nombre_archivo_sugerido,
+                                                    parent=self.root)
 
         if not nombre_archivo:
             print("Guardado cancelado - sin nombre de archivo")
             return
 
         print(f"Nombre archivo: {nombre_archivo}")
-        print(f"Proveedor ID: {proveedor_id}")
         print(f"Nombre proveedor: {nombre_proveedor}")
+        print(f"CIF proveedor: {cif_proveedor}")
 
         # Crear plantilla
         campos_lista = []
@@ -434,8 +439,8 @@ class EditorPlantillas:
         print(f"Campos a guardar: {len(campos_lista)}")
 
         plantilla = {
-            "proveedor_id": proveedor_id or "PROV_001",
             "nombre_proveedor": nombre_proveedor or "Proveedor",
+            "cif_proveedor": cif_proveedor or "",
             "pdf_referencia": self.pdf_path,
             "campos": campos_lista
         }

@@ -76,6 +76,34 @@ class ExcelExporter:
         print(f"OK Excel basico exportado: {ruta_completa}")
         return ruta_completa
 
+    def exportar_excel_completo(self, nombre_archivo: Optional[str] = None) -> str:
+        """
+        Exporta TODOS los datos incluyendo metadatos (para debugging y control).
+
+        Args:
+            nombre_archivo (str, optional): Nombre del archivo. Si None, se genera automáticamente.
+
+        Returns:
+            str: Ruta del archivo generado
+        """
+        if not self.datos:
+            raise ValueError("No hay datos para exportar")
+
+        if nombre_archivo is None:
+            nombre_archivo = f"facturas_completo_debug_{self.timestamp}.xlsx"
+
+        ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
+
+        # Crear DataFrame con TODOS los datos (sin filtrar)
+        df = pd.DataFrame(self.datos)
+
+        # Exportar a Excel
+        with pd.ExcelWriter(ruta_completa, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Datos_Completos', index=False)
+
+        print(f"OK Excel completo (debug) exportado: {ruta_completa}")
+        return ruta_completa
+
     def exportar_excel_formateado(self, nombre_archivo: Optional[str] = None) -> str:
         """
         Exporta los datos a un archivo Excel con formato profesional.
@@ -101,9 +129,13 @@ class ExcelExporter:
         df = pd.DataFrame(datos_estandar)
 
         # Separar datos por estado (exitosos vs errores)
-        if '_Error' in df.columns:
-            df_exitosos = df[df['Error'].isna()].copy()
-            df_errores = df[df['Error'].notna()].copy()
+        # Nota: df ya está filtrado (solo columnas estándar), así que usamos los datos originales para detectar errores
+        df_original = pd.DataFrame(self.datos)
+        if '_Error' in df_original.columns:
+            indices_exitosos = df_original[df_original['_Error'].isna()].index
+            indices_errores = df_original[df_original['_Error'].notna()].index
+            df_exitosos = df.iloc[indices_exitosos].copy()
+            df_errores = df.iloc[indices_errores].copy()
         else:
             df_exitosos = df.copy()
             df_errores = pd.DataFrame()
@@ -142,10 +174,11 @@ class ExcelExporter:
 
         # Información general
         row = 3
-        # Calcular facturas exitosas y con errores
-        if 'Error' in df.columns:
-            facturas_exitosas = len(df[df['Error'].isna()])
-            facturas_con_errores = len(df[df['Error'].notna()])
+        # Calcular facturas exitosas y con errores desde datos originales
+        df_original = pd.DataFrame(self.datos)
+        if '_Error' in df_original.columns:
+            facturas_exitosas = len(df_original[df_original['_Error'].isna()])
+            facturas_con_errores = len(df_original[df_original['_Error'].notna()])
         else:
             facturas_exitosas = len(df)
             facturas_con_errores = 0
@@ -264,9 +297,10 @@ class ExcelExporter:
 
         row += 2
 
-        # Archivos con errores
-        if 'Error' in df.columns:
-            df_errores = df[df['Error'].notna()]
+        # Archivos con errores - usar datos originales
+        df_original = pd.DataFrame(self.datos)
+        if '_Error' in df_original.columns:
+            df_errores = df_original[df_original['_Error'].notna()]
         else:
             df_errores = pd.DataFrame()
 
@@ -276,28 +310,33 @@ class ExcelExporter:
             row += 1
 
             for _, factura in df_errores.iterrows():
-                ws[f'A{row}'] = factura.get('Archivo', 'N/A')
-                ws[f'B{row}'] = factura.get('Error', 'Error desconocido')
+                ws[f'A{row}'] = factura.get('_Archivo', 'N/A')
+                ws[f'B{row}'] = factura.get('_Error', 'Error desconocido')
                 row += 1
 
     def _calcular_estadisticas_proveedores(self, df: pd.DataFrame) -> List[Dict[str, Any]]:
         """Calcula estadísticas por proveedor."""
         stats = []
-        proveedores = df['Proveedor_ID'].value_counts()
+        # Usar datos originales para obtener metadatos
+        df_original = pd.DataFrame(self.datos)
+        if '_Proveedor_ID' not in df_original.columns:
+            return stats
+
+        proveedores = df_original['_Proveedor_ID'].value_counts()
 
         for proveedor_id, total in proveedores.items():
-            df_proveedor = df[df['Proveedor_ID'] == proveedor_id]
+            df_proveedor = df_original[df_original['_Proveedor_ID'] == proveedor_id]
 
-            # Contar exitosas: las que no tienen columna 'Error' o la tienen pero es NaN
-            if 'Error' in df_proveedor.columns:
-                exitosas = len(df_proveedor[df_proveedor['Error'].isna()])
+            # Contar exitosas: las que no tienen columna '_Error' o la tienen pero es NaN
+            if '_Error' in df_proveedor.columns:
+                exitosas = len(df_proveedor[df_proveedor['_Error'].isna()])
             else:
                 exitosas = total
 
             errores = total - exitosas
             porcentaje = round((exitosas / total) * 100, 1) if total > 0 else 0
 
-            nombre_proveedor = df_proveedor['Proveedor_Nombre'].iloc[0] if 'Proveedor_Nombre' in df_proveedor.columns else 'N/A'
+            nombre_proveedor = df_proveedor['_Proveedor_Nombre'].iloc[0] if '_Proveedor_Nombre' in df_proveedor.columns else 'N/A'
 
             stats.append({
                 'proveedor_id': proveedor_id,
@@ -314,9 +353,8 @@ class ExcelExporter:
         """Calcula estadísticas de éxito por campo."""
         stats = {}
 
-        # Obtener todos los campos excepto los meta
-        campos_meta = {'Archivo', 'Proveedor_ID', 'Proveedor_Nombre', 'Fecha_Procesamiento', 'Error'}
-        campos = [col for col in df.columns if col not in campos_meta]
+        # df ya está filtrado (solo columnas estándar), no necesitamos excluir nada
+        campos = [col for col in df.columns]
 
         for campo in campos:
             if campo in df.columns:

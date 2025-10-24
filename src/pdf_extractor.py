@@ -15,17 +15,20 @@ from typing import Dict, List, Any, Optional
 class PDFExtractor:
     # Mapeo de nombres de campos en plantillas a nombres de columnas estándar
     MAPEO_CAMPOS = {
+        # Campos principales (capturados del PDF)
+        'FechaFactura': 'FechaFactura',
+        'FechaVto': 'FechaVto',
+        'NumFactura': 'NumFactura',
+        'Base': 'Base',
+        # Compatibilidad con nombres antiguos
         'num-factura': 'NumFactura',
         'numero-factura': 'NumFactura',
         'fecha-factura': 'FechaFactura',
         'fecha': 'FechaFactura',
         'fecha-vto': 'FechaVto',
         'fecha-vencimiento': 'FechaVto',
-        'fecha-pago': 'FechaPago',
         'base': 'Base',
         'base-imponible': 'Base',
-        'comision-paypal': 'ComPaypal',
-        'com-paypal': 'ComPaypal',
     }
 
     def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas",
@@ -68,7 +71,8 @@ class PDFExtractor:
 
                     # Validar estructura básica de la plantilla
                     if self.validar_plantilla(plantilla):
-                        proveedor_id = plantilla.get('proveedor_id', archivo)
+                        # Usar nombre de archivo sin extensión como identificador
+                        proveedor_id = os.path.splitext(archivo)[0]
                         self.plantillas_cargadas[proveedor_id] = plantilla
                         plantillas_encontradas += 1
                         print(f"OK Plantilla cargada: {archivo} -> {plantilla.get('nombre_proveedor', proveedor_id)}")
@@ -91,7 +95,7 @@ class PDFExtractor:
         Returns:
             bool: True si la plantilla es válida
         """
-        campos_requeridos = ['proveedor_id', 'nombre_proveedor', 'campos']
+        campos_requeridos = ['nombre_proveedor', 'campos']
 
         # Verificar campos principales
         for campo in campos_requeridos:
@@ -190,8 +194,9 @@ class PDFExtractor:
         plantilla = self.plantillas_cargadas[proveedor_id]
 
         # Inicializar con nombres de columnas estándar (todos vacíos por defecto)
+        # Solo los 9 campos requeridos por el usuario
         datos_factura = {
-            'CIF': proveedor_id,  # CIF del proveedor
+            'CIF': plantilla.get('cif_proveedor', ''),  # CIF del proveedor desde la plantilla
             'FechaFactura': '',
             'Trimestre': self.trimestre,
             'Año': self.año,
@@ -402,22 +407,44 @@ class PDFExtractor:
                     print(f"OK Procesado exitosamente")
                 except Exception as e:
                     print(f"ERROR procesando: {e}")
-                    # Agregar registro de error
+                    # Agregar registro de error con metadatos
                     datos_error = {
-                        'Archivo': archivo_pdf,
-                        'Proveedor_ID': proveedor_id,
-                        'Error': str(e),
-                        'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        # Campos estándar vacíos
+                        'CIF': '',
+                        'FechaFactura': '',
+                        'Trimestre': self.trimestre,
+                        'Año': self.año,
+                        'FechaVto': '',
+                        'NumFactura': '',
+                        'FechaPago': '',
+                        'Base': '',
+                        'ComPaypal': '',
+                        # Metadatos de error
+                        '_Archivo': archivo_pdf,
+                        '_Proveedor_ID': proveedor_id,
+                        '_Error': str(e),
+                        '_Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     resultados.append(datos_error)
             else:
                 print(f"ERROR Proveedor no identificado")
-                # Agregar registro de proveedor no identificado
+                # Agregar registro de proveedor no identificado con metadatos
                 datos_error = {
-                    'Archivo': archivo_pdf,
-                    'Proveedor_ID': 'NO_IDENTIFICADO',
-                    'Error': 'Proveedor no identificado',
-                    'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    # Campos estándar vacíos
+                    'CIF': '',
+                    'FechaFactura': '',
+                    'Trimestre': self.trimestre,
+                    'Año': self.año,
+                    'FechaVto': '',
+                    'NumFactura': '',
+                    'FechaPago': '',
+                    'Base': '',
+                    'ComPaypal': '',
+                    # Metadatos de error
+                    '_Archivo': archivo_pdf,
+                    '_Proveedor_ID': 'NO_IDENTIFICADO',
+                    '_Error': 'Proveedor no identificado',
+                    '_Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
                 resultados.append(datos_error)
 
@@ -438,18 +465,18 @@ class PDFExtractor:
             return {}
 
         total_facturas = len(self.resultados)
-        facturas_con_error = sum(1 for r in self.resultados if 'Error' in r)
+        facturas_con_error = sum(1 for r in self.resultados if '_Error' in r)
         facturas_exitosas = total_facturas - facturas_con_error
 
         # Estadísticas por proveedor
         proveedores = {}
         for resultado in self.resultados:
-            proveedor = resultado.get('Proveedor_ID', 'DESCONOCIDO')
+            proveedor = resultado.get('_Proveedor_ID', 'DESCONOCIDO')
             if proveedor not in proveedores:
                 proveedores[proveedor] = {'total': 0, 'exitosos': 0, 'errores': 0}
 
             proveedores[proveedor]['total'] += 1
-            if 'Error' in resultado:
+            if '_Error' in resultado:
                 proveedores[proveedor]['errores'] += 1
             else:
                 proveedores[proveedor]['exitosos'] += 1

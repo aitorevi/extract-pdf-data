@@ -165,7 +165,10 @@ class FacturaExtractorApp:
             archivos_generados = {}
 
             if formato == "excel" or formato == "todos":
+                # Excel principal: solo las 9 columnas requeridas
                 archivos_generados['excel'] = self.exporter.exportar_excel_formateado()
+                # Excel completo: con todos los metadatos para debugging
+                archivos_generados['excel_debug'] = self.exporter.exportar_excel_completo()
 
             if formato == "csv" or formato == "todos":
                 archivos_generados['csv'] = self.exporter.exportar_csv()
