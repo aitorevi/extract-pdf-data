@@ -13,18 +13,38 @@ from typing import Dict, List, Any, Optional
 
 
 class PDFExtractor:
-    def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas"):
+    # Mapeo de nombres de campos en plantillas a nombres de columnas estándar
+    MAPEO_CAMPOS = {
+        'num-factura': 'NumFactura',
+        'numero-factura': 'NumFactura',
+        'fecha-factura': 'FechaFactura',
+        'fecha': 'FechaFactura',
+        'fecha-vto': 'FechaVto',
+        'fecha-vencimiento': 'FechaVto',
+        'fecha-pago': 'FechaPago',
+        'base': 'Base',
+        'base-imponible': 'Base',
+        'comision-paypal': 'ComPaypal',
+        'com-paypal': 'ComPaypal',
+    }
+
+    def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas",
+                 trimestre: str = "", año: str = ""):
         """
         Inicializa el extractor de PDF.
 
         Args:
             directorio_facturas (str): Directorio donde están las facturas PDF
             directorio_plantillas (str): Directorio donde están las plantillas JSON
+            trimestre (str): Trimestre fiscal (Q1, Q2, Q3, Q4)
+            año (str): Año fiscal
         """
         self.directorio_facturas = directorio_facturas
         self.directorio_plantillas = directorio_plantillas
         self.plantillas_cargadas = {}
         self.resultados = []
+        self.trimestre = trimestre
+        self.año = año
 
     def cargar_plantillas(self) -> bool:
         """
@@ -168,12 +188,24 @@ class PDFExtractor:
             raise ValueError(f"Plantilla no encontrada para proveedor: {proveedor_id}")
 
         plantilla = self.plantillas_cargadas[proveedor_id]
+
+        # Inicializar con nombres de columnas estándar (todos vacíos por defecto)
         datos_factura = {
-            'Archivo': os.path.basename(ruta_pdf),
-            'Proveedor_ID': proveedor_id,
-            'Proveedor_Nombre': plantilla.get('nombre_proveedor', ''),
-            'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'CIF': proveedor_id,  # CIF del proveedor
+            'FechaFactura': '',
+            'Trimestre': self.trimestre,
+            'Año': self.año,
+            'FechaVto': '',
+            'NumFactura': '',
+            'FechaPago': '',
+            'Base': '',
+            'ComPaypal': '',
         }
+
+        # Metadatos adicionales (para uso interno, con prefijo _)
+        datos_factura['_Archivo'] = os.path.basename(ruta_pdf)
+        datos_factura['_Proveedor_Nombre'] = plantilla.get('nombre_proveedor', '')
+        datos_factura['_Fecha_Procesamiento'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         try:
             with pdfplumber.open(ruta_pdf) as pdf:
@@ -184,7 +216,7 @@ class PDFExtractor:
                 pagina = pdf.pages[0]
 
                 for campo in plantilla['campos']:
-                    nombre_campo = campo['nombre']
+                    nombre_campo_plantilla = campo['nombre']
                     coordenadas = campo['coordenadas']
                     tipo_campo = campo.get('tipo', 'texto')
 
@@ -196,19 +228,28 @@ class PDFExtractor:
 
                         # Limpiar y procesar según tipo
                         valor_procesado = self.procesar_campo(texto_extraido, tipo_campo)
-                        datos_factura[nombre_campo] = valor_procesado
 
-                        print(f"  {nombre_campo}: {valor_procesado}")
+                        # Mapear nombre de campo de plantilla a nombre de columna estándar
+                        nombre_columna = self.MAPEO_CAMPOS.get(nombre_campo_plantilla, nombre_campo_plantilla)
+
+                        # Solo actualizar si es un campo estándar
+                        if nombre_columna in datos_factura:
+                            datos_factura[nombre_columna] = valor_procesado
+                            print(f"  {nombre_columna}: {valor_procesado}")
+                        else:
+                            # Campo no estándar, guardarlo con prefijo _ para metadatos
+                            datos_factura[f'_{nombre_campo_plantilla}'] = valor_procesado
+                            print(f"  {nombre_campo_plantilla} (no estándar): {valor_procesado}")
 
                     except Exception as e:
-                        print(f"  Error extrayendo {nombre_campo}: {e}")
-                        datos_factura[nombre_campo] = "ERROR"
+                        print(f"  Error extrayendo {nombre_campo_plantilla}: {e}")
+                        nombre_columna = self.MAPEO_CAMPOS.get(nombre_campo_plantilla, nombre_campo_plantilla)
+                        if nombre_columna in datos_factura:
+                            datos_factura[nombre_columna] = "ERROR"
 
         except Exception as e:
             print(f"Error procesando PDF {ruta_pdf}: {e}")
-            # Llenar con errores todos los campos de la plantilla
-            for campo in plantilla['campos']:
-                datos_factura[campo['nombre']] = "ERROR_PDF"
+            datos_factura['_Error'] = str(e)
 
         return datos_factura
 

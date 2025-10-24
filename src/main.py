@@ -90,11 +90,26 @@ class FacturaExtractorApp:
         """
         print("\n=== MODO: PROCESAMIENTO DE FACTURAS ===")
 
-        # Inicializar extractor
-        self.pdf_extractor = PDFExtractor()
+        # Solicitar información fiscal al usuario
+        print("\nDatos fiscales para la exportación:")
+        trimestre = input("Ingresa el trimestre (Q1, Q2, Q3, Q4): ").strip().upper()
+        año = input("Ingresa el año (ej: 2025): ").strip()
+
+        # Validar entrada de trimestre
+        if trimestre not in ['Q1', 'Q2', 'Q3', 'Q4']:
+            print(f"WARN Trimestre '{trimestre}' no válido. Usando valor vacío.")
+            trimestre = ""
+
+        # Validar entrada de año
+        if not año.isdigit() or len(año) != 4:
+            print(f"WARN Año '{año}' no válido. Usando valor vacío.")
+            año = ""
+
+        # Inicializar extractor con datos fiscales
+        self.pdf_extractor = PDFExtractor(trimestre=trimestre, año=año)
 
         # Cargar plantillas
-        print("Cargando plantillas...")
+        print("\nCargando plantillas...")
         if not self.pdf_extractor.cargar_plantillas():
             print("ERROR: No se pudieron cargar plantillas.")
             print("   Usa el modo 'coordenadas' para crear plantillas primero.")

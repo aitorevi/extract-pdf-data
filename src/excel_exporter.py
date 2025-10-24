@@ -29,6 +29,22 @@ class ExcelExporter:
         # Crear directorio de salida si no existe
         os.makedirs(directorio_salida, exist_ok=True)
 
+    def _filtrar_columnas_estandar(self, datos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Filtra solo las columnas estándar (excluye las que empiezan con _).
+
+        Args:
+            datos (List[Dict[str, Any]]): Datos originales con todos los campos
+
+        Returns:
+            List[Dict[str, Any]]: Datos filtrados solo con columnas estándar
+        """
+        datos_filtrados = []
+        for registro in datos:
+            registro_filtrado = {k: v for k, v in registro.items() if not k.startswith('_')}
+            datos_filtrados.append(registro_filtrado)
+        return datos_filtrados
+
     def exportar_excel_basico(self, nombre_archivo: Optional[str] = None) -> str:
         """
         Exporta los datos a un archivo Excel básico usando pandas.
@@ -47,8 +63,11 @@ class ExcelExporter:
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
+        # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
+        datos_estandar = self._filtrar_columnas_estandar(self.datos)
+
         # Crear DataFrame
-        df = pd.DataFrame(self.datos)
+        df = pd.DataFrame(datos_estandar)
 
         # Exportar a Excel
         with pd.ExcelWriter(ruta_completa, engine='openpyxl') as writer:
@@ -75,11 +94,14 @@ class ExcelExporter:
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
+        # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
+        datos_estandar = self._filtrar_columnas_estandar(self.datos)
+
         # Crear DataFrame
-        df = pd.DataFrame(self.datos)
+        df = pd.DataFrame(datos_estandar)
 
         # Separar datos por estado (exitosos vs errores)
-        if 'Error' in df.columns:
+        if '_Error' in df.columns:
             df_exitosos = df[df['Error'].isna()].copy()
             df_errores = df[df['Error'].notna()].copy()
         else:
@@ -328,8 +350,11 @@ class ExcelExporter:
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
+        # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
+        datos_estandar = self._filtrar_columnas_estandar(self.datos)
+
         # Crear DataFrame y exportar
-        df = pd.DataFrame(self.datos)
+        df = pd.DataFrame(datos_estandar)
         df.to_csv(ruta_completa, index=False, encoding='utf-8-sig', sep=';')
 
         print(f"OK CSV exportado: {ruta_completa}")
@@ -353,14 +378,17 @@ class ExcelExporter:
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
+        # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
+        datos_estandar = self._filtrar_columnas_estandar(self.datos)
+
         # Agregar metadatos
         exportacion = {
             "metadata": {
                 "fecha_exportacion": datetime.now().isoformat(),
-                "total_facturas": len(self.datos),
+                "total_facturas": len(datos_estandar),
                 "version": "1.0"
             },
-            "facturas": self.datos
+            "facturas": datos_estandar
         }
 
         with open(ruta_completa, 'w', encoding='utf-8') as f:
