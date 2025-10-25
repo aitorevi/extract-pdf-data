@@ -5,12 +5,12 @@
 ## 🎯 Estado Actual
 
 - **Rama actual**: `main`
-- **Fase activa**: FASE 2 COMPLETADA ✅ | Decidiendo siguiente fase
-- **Issues completados**: Fase 1 completa + Issue #9 (DataCleaners) ✅
-- **Último logro**: PR #11 mergeado - Fase 2A completada con deuda técnica documentada
+- **Fase activa**: FASE 3 - Corner Cases y Plantillas 🔧 (INICIADA)
+- **Issues completados**: Fase 1 ✅ + Fase 2A ✅ + Issues #8, #9, #10 cerrados
+- **Último logro**: Issue #12 creado - Soporte múltiples páginas en PDFs
 - **Coverage total actual**: 79% ⭐ (mantenido)
 - **Tests totales**: 176 passed + 2 skipped ✅
-- **Próximo paso**: Elegir entre Fases 3, 4, 5, 6 o 7 según prioridades
+- **Próximo paso**: Definir requisitos Issue #13 (Campos opcionales) y comenzar implementación
 
 ## ✅ Completado
 
@@ -271,6 +271,43 @@
 - [x] Duplicaciones de limpieza eliminadas en Issue #9
 - [x] Issue cerrado - No requiere más acción
 
+---
+
+## FASE 3: Corner Cases y Plantillas 🔧 INICIADA
+
+### Issue #12: Soporte para facturas en múltiples páginas 🔄 CREADO
+- [x] Análisis de requisitos con usuario
+- [x] Diseño de solución completo
+- [x] Issue creado en GitHub
+- [ ] Implementación pendiente
+
+**Requisitos definidos:**
+- Soportar una factura en múltiples páginas
+- Soportar múltiples facturas en un PDF
+- Agrupar páginas por NumFactura
+- Extraer datos de ÚLTIMA página de cada factura
+- Validar que todas las páginas tienen NumFactura
+- Marcar como ERROR si páginas sin NumFactura
+
+**Casos de uso:**
+1. 1 factura en 1 página (actual) ✅
+2. 1 factura en 3 páginas → extraer de página 3
+3. 3 facturas en 1 PDF → extraer 3 facturas
+4. Páginas sin NumFactura → ERROR a Excel debug
+
+### Issue #13: Campos opcionales/condicionales 📋 PENDIENTE
+- [x] Identificado como corner case prioritario
+- [ ] Definir requisitos específicos con usuario
+- [ ] Crear issue en GitHub
+- [ ] Implementación pendiente
+
+**Opciones a considerar:**
+- Opción A: Campos marcados como opcionales (no warning si vacío)
+- Opción B: Valores por defecto para campos vacíos
+- Opción C: Extracción condicional basada en otros campos
+
+**Decisión pendiente:** Usuario definirá cuál opción necesita desde casa
+
 **Tests**: 176 passed + 2 skipped ✅
 
 **Coverage Detallado**:
@@ -322,7 +359,11 @@ Las siguientes refactorizaciones de **Fase 2** quedan como **deuda técnica** pa
 
 ## 🔄 En Progreso
 
-**Ninguna fase activa** - Decidiendo próximos pasos
+**FASE 3: Corner Cases y Plantillas** 🔧
+
+**Tareas activas:**
+- Issue #12: Soporte múltiples páginas (creado, pendiente implementación)
+- Issue #13: Campos opcionales (pendiente definición de requisitos)
 
 ## 📋 Próximos Pasos - Fases Disponibles
 
@@ -558,6 +599,17 @@ pytest -m unit
 
 ---
 
-**Última acción**: PR #11 mergeado - Fase 2A completada, Fases 2B y 2C documentadas como deuda técnica
-**Próxima acción recomendada**: Elegir entre Fases 3, 4, 5, 6, o 7 según prioridades
-**Bloqueadores**: Ninguno - esperando decisión sobre próxima fase
+**Última acción**: Fase 3 iniciada - Issue #12 creado (soporte múltiples páginas en PDFs)
+**Próxima acción recomendada**:
+1. Definir requisitos Issue #13 (campos opcionales)
+2. Implementar Issue #12 con TDD
+3. Crear tests y fixtures para PDFs multipágina
+
+**Bloqueadores**:
+- Issue #13: Esperando definición de requisitos (Opción A, B o C)
+- Issue #12: Listo para implementar
+
+**Commits pendientes de esta sesión:**
+- Actualización PROGRESS.md con Fase 3 iniciada
+- Issues #8, #9, #10 cerrados
+- Issue #12 creado
