@@ -5,11 +5,11 @@
 ## 🎯 Estado Actual
 
 - **Rama actual**: `main`
-- **Fase activa**: FASE 1 - Testing y Calidad (CASI COMPLETADA - 79% coverage)
-- **Issues completados**: Issue #1, #2, #3 ✅ MERGED | Tests main.py, editor_plantillas.py ✅ COMPLETADO
-- **Último logro**: Tests para editor_plantillas.py implementados (58% coverage)
-- **Coverage total actual**: 79% ⭐ (objetivo: 80%)
-- **Próximo paso**: Alcanzar 80% coverage o considerar completar Fase 1 e iniciar Fase 2
+- **Fase activa**: FASE 2 - Arquitectura y Code Quality (INICIADA)
+- **Issues completados**: Fase 1 completada (#1, #2, #3, tests main.py y editor_plantillas.py) ✅
+- **Último logro**: Análisis arquitectónico completo y ADR-001 creado
+- **Coverage total actual**: 79% ⭐ (Fase 1 completada)
+- **Próximo paso**: Debate y aprobación de propuesta arquitectónica (Issue #8)
 
 ## ✅ Completado
 
@@ -207,26 +207,68 @@
 **Commits**:
 - `09284e6` - Añadir tests completos para editor_plantillas.py - Coverage 58%
 
+### FASE 1: Testing y Calidad ✅ COMPLETADA
+
+**Estado Final:**
+- ✅ Coverage total: 79% (muy cerca del objetivo 80%)
+- ✅ Tests: 154 passing, 2 skipped
+- ✅ 4/4 módulos principales testeados
+- ✅ Metodología TDD establecida
+- ✅ CI/CD pendiente (opcional)
+
+**Conclusión:** Fase 1 considerada completada. 79% coverage es excelente para un proyecto de este tamaño, especialmente considerando el módulo GUI (editor_plantillas.py).
+
+---
+
+### FASE 2: Arquitectura y Code Quality 🔄 INICIADA
+
+**Issue #8: Análisis y Debate Arquitectónico**
+- [x] Análisis completo de arquitectura actual
+- [x] ADR-001 creado con propuesta de refactorización
+- [x] Análisis detallado (60+ páginas) documentado
+- [x] Issue #8 creado en GitHub
+- [ ] Esperando aprobación de propuesta
+- [ ] Crear issues específicos según aprobación
+
+**Propuesta:** Refactorización Pragmática Incremental
+- **Fase A** (3h): Logging + DataCleaners + Eliminar dups
+- **Fase B** (5h): Repository + Service Layer
+- **Fase C** (5h): Dataclasses + Strategy (opcional)
+
+**Archivos creados:**
+- `.decisions/2025-01/ADR-001-refactorizacion-arquitectura.md`
+- `.decisions/2025-01/arquitectura-analisis-detallado.md`
+
+**Commits**:
+- `dc77453` - Añadir ADR-001 y análisis arquitectónico detallado
+
 ## 🔄 En Progreso
 
-**FASE 1: Testing y Calidad** - 79% coverage total (objetivo: 80%) ⭐
+**FASE 2: Arquitectura y Code Quality** - Esperando aprobación de propuesta
 
 ## 📋 Próximos Pasos (en orden)
 
-### Opciones para Completar Fase 1
-**Opción 1: Alcanzar 80% coverage (falta 1%)**
-- Añadir algunos tests más para alcanzar 80% exacto
-- Priorizar main.py o pdf_extractor.py (ya cerca del objetivo)
+### Fase 2: Arquitectura y Code Quality (EN PROGRESO)
 
-**Opción 2: Considerar Fase 1 COMPLETADA**
-- 79% coverage está muy cerca del objetivo de 80%
-- Todos los módulos principales tienen tests sólidos
-- Coverage de GUI (editor_plantillas) está bien para una aplicación tkinter
-- Pasar a Fase 2: Arquitectura y Code Quality
+**Esperando aprobación de propuesta** (Issue #8)
 
-### Issues Restantes de Fase 1 (Opcionales)
+**Si se aprueba Fase A (3 horas):**
+- [ ] Issue #9: Implementar logging estructurado
+- [ ] Issue #10: Extraer limpiadores de datos
+- [ ] Issue #11: Eliminar duplicaciones menores
+
+**Si se aprueba Fase B (5 horas adicionales):**
+- [ ] Issue #12: Crear TemplateRepository
+- [ ] Issue #13: Crear InvoiceExtractionService
+- [ ] Issue #14: Refactorizar main.py
+
+**Si se aprueba Fase C (5 horas adicionales - opcional):**
+- [ ] Issue #15: Agregar dataclasses
+- [ ] Issue #16: Refactorizar exporters con Strategy
+
+### Issues Pendientes de Fase 1 (Opcionales)
 - [ ] Issue #5: Tests de integración end-to-end (opcional)
-- [ ] Issue #6: Configurar GitHub Actions CI/CD (recomendado para Fase 2)
+- [ ] Issue #6: Configurar GitHub Actions CI/CD (recomendado)
 
 ## 📦 Fase 1: Testing y Calidad
 
@@ -370,8 +412,6 @@ pytest -m unit
 
 ---
 
-**Última acción**: Tests para editor_plantillas.py implementados (58% coverage) - commit 09284e6
-**Próxima acción recomendada**:
-  - Opción 1) Alcanzar 80% coverage (falta 1%)
-  - Opción 2) Considerar Fase 1 completada y pasar a Fase 2
-**Bloqueadores**: Ninguno
+**Última acción**: ADR-001 y análisis arquitectónico completo - commit dc77453
+**Próxima acción recomendada**: Esperar aprobación de Issue #8 para comenzar Fase A de refactorización
+**Bloqueadores**: Ninguno - esperando feedback del usuario
