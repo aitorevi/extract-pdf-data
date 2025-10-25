@@ -1,13 +1,14 @@
 # 📊 Progreso del Proyecto
 
-**Última actualización**: 2025-01-24
+**Última actualización**: 2025-10-25
 
 ## 🎯 Estado Actual
 
 - **Rama actual**: `feature/standardize-column-names`
-- **Fase activa**: FASE 5 - Exportación y Campos
-- **Issues completados**: Issue #1, #2 ✅ MERGED | Issue #3 ✅ EN REVISIÓN (PR #4)
-- **Próximo paso**: Revisar y mergear PR #4, luego continuar con Issue #4 - Tests para main.py
+- **Fase activa**: FASE 5 - Exportación y Campos + Identificación Automática de Proveedores
+- **Issues completados**: Issue #1, #2 ✅ MERGED | Issue #3 ✅ COMPLETADO
+- **Funcionalidad nueva**: Sistema de identificación automática de proveedores implementado y testeado
+- **Próximo paso**: Push y preparar PR para merge a main
 
 ## ✅ Completado
 
@@ -112,9 +113,40 @@
 - `07add0c` - Añadir tests y normalización fechas DD/MM/YYYY
 - `ea9ee12` - Añadir documentación flujo de trabajo TDD - AGENTS.md
 
+### Nueva Funcionalidad: Identificación Automática de Proveedores ✅
+- [x] Sistema de campos de identificación (CIF/Nombre) en plantillas
+- [x] UI mejorada en editor con secciones diferenciadas (🔍 Identificación | 📊 Datos)
+- [x] Función `identificar_proveedor()` con matching inteligente:
+  - CIF: coincidencia exacta
+  - Nombre: coincidencia flexible (>=85% similitud)
+- [x] Función `_calcular_similitud()` que normaliza textos (puntuación, espacios, mayúsculas)
+- [x] Validación: facturas sin proveedor identificado generan error
+- [x] Mejora en exportación: excluye duplicados Y errores del Excel principal
+- [x] 33 tests implementados (100% passing) ✅
+  - test_provider_identification.py: 13 tests
+  - test_duplicate_detection.py: 9 tests
+  - test_error_handling_export.py: 11 tests
+
+**Tests**: 33/33 passed ✅
+
+**Coverage**:
+- excel_exporter.py: 81%
+- pdf_extractor.py: 65%
+
+**Archivos modificados**:
+- `src/editor_plantillas.py` - Campos de identificación CIF/Nombre + UI mejorada
+- `src/excel_exporter.py` - Parámetro excluir_errores en filtrado
+- `src/pdf_extractor.py` - identificar_proveedor() con similitud + validación
+- `tests/test_provider_identification.py` - 13 tests (nuevo)
+- `tests/test_duplicate_detection.py` - 9 tests (nuevo)
+- `tests/test_error_handling_export.py` - 11 tests (nuevo)
+
+**Commits**:
+- `32219a8` - Implementar identificación automática de proveedores y mejoras en detección de duplicados/errores
+
 ## 🔄 En Progreso
 
-**Issue #3** - PR #4 en revisión, pendiente de merge
+**Preparando para merge** - Rama feature/standardize-column-names lista para PR
 
 ## 📋 Próximos Pasos (en orden)
 
@@ -245,21 +277,21 @@ pytest -m unit
 ## 📊 Métricas
 
 ### Testing
-- **Tests totales**: 64 (8 sample + 56 pdf_extractor)
-- **Tests pasando**: 64 (100%)
+- **Tests totales**: 97 (8 sample + 56 pdf_extractor + 33 nuevos)
+- **Tests pasando**: 97 (100%)
 - **Fixtures compartidas**: 13
-- **Coverage actual**: 21% total (91% en pdf_extractor.py)
+- **Coverage actual**: 36% total (excel_exporter.py 81%, pdf_extractor.py 65%)
 - **Coverage objetivo**: 80% total
-- **Módulos testeados**: 1/3 módulos principales
+- **Módulos testeados**: 2/3 módulos principales (falta main.py)
 
 ### Código
 - **Archivos principales**: 5 archivos en `src/`
 - **Utilidades**: 4 archivos en `utils/`
 - **Scripts**: 3 archivos en `scripts/`
-- **Tests**: 3 archivos de test (conftest, test_sample, test_pdf_extractor)
+- **Tests**: 6 archivos de test (conftest, test_sample, test_pdf_extractor, test_provider_identification, test_duplicate_detection, test_error_handling_export)
 
 ---
 
-**Última acción**: Issue #1 y #2 merged a main
-**Próxima acción requerida**: Comenzar Issue #3 - Tests para excel_exporter.py
+**Última acción**: Sistema de identificación automática de proveedores implementado y testeado (commit 32219a8)
+**Próxima acción requerida**: Push y crear PR para merge a main
 **Bloqueadores**: Ninguno
