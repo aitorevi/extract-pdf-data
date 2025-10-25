@@ -5,11 +5,11 @@
 ## 🎯 Estado Actual
 
 - **Rama actual**: `main`
-- **Fase activa**: FASE 1 - Testing y Calidad (Avanzado)
-- **Issues completados**: Issue #1, #2, #3 ✅ MERGED | Tests main.py ✅ COMPLETADO
-- **Último logro**: Tests para main.py implementados (91% coverage)
-- **Coverage total actual**: 54% (en progreso hacia 80%)
-- **Próximo paso**: Actualizar tests antiguos o continuar con Fase 2
+- **Fase activa**: FASE 1 - Testing y Calidad (CASI COMPLETADA - 79% coverage)
+- **Issues completados**: Issue #1, #2, #3 ✅ MERGED | Tests main.py, editor_plantillas.py ✅ COMPLETADO
+- **Último logro**: Tests para editor_plantillas.py implementados (58% coverage)
+- **Coverage total actual**: 79% ⭐ (objetivo: 80%)
+- **Próximo paso**: Alcanzar 80% coverage o considerar completar Fase 1 e iniciar Fase 2
 
 ## ✅ Completado
 
@@ -173,22 +173,60 @@
 **Commits**:
 - `cd41bed` - Añadir tests completos para main.py - Coverage 91%
 
+### Tests para editor_plantillas.py ✅
+- [x] Análisis completo de src/editor_plantillas.py
+- [x] `tests/test_editor_plantillas.py` creado con 11 tests unitarios y de integración
+- [x] Tests para constantes y configuración:
+  - Campos de identificación (CIF, Nombre)
+  - Campos predefinidos (FechaFactura, FechaVto, NumFactura, Base)
+- [x] Tests de inicialización:
+  - Sin plantilla existente (3 tests)
+  - Con plantilla existente
+  - Configuración de dimensiones de ventana
+- [x] Tests de validación al guardar:
+  - Validación de campos obligatorios
+  - Advertencias sobre campos de identificación faltantes
+- [x] Tests de carga de plantillas desde JSON
+- [x] Tests de selección de campos para captura
+- [x] Test de integración: flujo completo de creación de plantilla
+- [x] **Coverage alcanzado: 58% en editor_plantillas.py** ✅ (de 0%)
+- [x] Estrategia de testing GUI: mocking de tkinter, pdfplumber y dialogs
+
+**Tests**: 11/11 passed ✅
+
+**Estrategia de Testing GUI**:
+- Moclear componentes tkinter (Tk, Canvas, Labels)
+- Moclear pdfplumber para evitar dependencias de archivo PDF real
+- Moclear dialogs (simpledialog.askstring, messagebox)
+- Enfoque en lógica de negocio y validaciones, no en UI
+
+**Coverage Detallado**:
+- src/editor_plantillas.py: **58% coverage** (332 statements, 138 missing)
+- Missing lines: principalmente UI handlers (clicks, drag, render) y función main()
+
+**Commits**:
+- `09284e6` - Añadir tests completos para editor_plantillas.py - Coverage 58%
+
 ## 🔄 En Progreso
 
-**FASE 1: Testing y Calidad** - 54% coverage total (objetivo: 80%)
+**FASE 1: Testing y Calidad** - 79% coverage total (objetivo: 80%) ⭐
 
 ## 📋 Próximos Pasos (en orden)
 
-### Inmediato
-1. **Revisar y mergear PR #4** (Issue #3)
-2. **Actualizar PROGRESS.md** tras merge
-3. **Comenzar Issue #4**: Tests unitarios para main.py
+### Opciones para Completar Fase 1
+**Opción 1: Alcanzar 80% coverage (falta 1%)**
+- Añadir algunos tests más para alcanzar 80% exacto
+- Priorizar main.py o pdf_extractor.py (ya cerca del objetivo)
 
-### Issues Restantes de Fase 1
-- [ ] Issue #3: Tests para excel_exporter.py
-- [ ] Issue #4: Tests para main.py
-- [ ] Issue #5: Tests de integración end-to-end
-- [ ] Issue #6: Configurar GitHub Actions CI/CD
+**Opción 2: Considerar Fase 1 COMPLETADA**
+- 79% coverage está muy cerca del objetivo de 80%
+- Todos los módulos principales tienen tests sólidos
+- Coverage de GUI (editor_plantillas) está bien para una aplicación tkinter
+- Pasar a Fase 2: Arquitectura y Code Quality
+
+### Issues Restantes de Fase 1 (Opcionales)
+- [ ] Issue #5: Tests de integración end-to-end (opcional)
+- [ ] Issue #6: Configurar GitHub Actions CI/CD (recomendado para Fase 2)
 
 ## 📦 Fase 1: Testing y Calidad
 
@@ -306,22 +344,34 @@ pytest -m unit
 ## 📊 Métricas
 
 ### Testing
-- **Tests totales**: 131 (8 sample + 56 pdf_extractor + 33 funcionalidad nueva + 34 main)
-- **Tests actualizados pasando**: 101 (67 nuevos + 34 main)
-- **Tests antiguos pendientes actualización**: 30 (requieren adaptación al nuevo sistema)
+- **Tests totales**: 156 (154 passing + 2 skipped)
+- **Tests por módulo**:
+  - test_sample.py: 8 tests ✅
+  - test_pdf_extractor.py: 54 passing + 2 skipped ✅
+  - test_column_standardization.py: 14 tests ✅
+  - test_provider_identification.py: 13 tests ✅
+  - test_duplicate_detection.py: 9 tests ✅
+  - test_error_handling_export.py: 11 tests ✅
+  - test_main.py: 34 tests ✅
+  - test_editor_plantillas.py: 11 tests ✅ (nuevo)
 - **Fixtures compartidas**: 13
-- **Coverage actual**: 54% total (main.py 91%, excel_exporter.py 81%, pdf_extractor.py 65%)
-- **Coverage objetivo**: 80% total
-- **Módulos testeados**: 3/3 módulos principales ✅
+- **Coverage actual**: **79% total** ⭐ (objetivo: 80%)
+  - main.py: 91% ✅
+  - excel_exporter.py: 81% ✅
+  - pdf_extractor.py: 91% ✅
+  - editor_plantillas.py: 58% ✅
+- **Módulos testeados**: 4/4 módulos principales ✅
 
 ### Código
 - **Archivos principales**: 5 archivos en `src/`
 - **Utilidades**: 4 archivos en `utils/`
 - **Scripts**: 3 archivos en `scripts/`
-- **Tests**: 7 archivos de test (conftest, test_sample, test_pdf_extractor, test_provider_identification, test_duplicate_detection, test_error_handling_export, test_main)
+- **Tests**: 8 archivos de test
 
 ---
 
-**Última acción**: Tests para main.py implementados (91% coverage) - commit cd41bed
-**Próxima acción recomendada**: Opción 1) Actualizar tests antiguos de pdf_extractor | Opción 2) Continuar con Fase 2
+**Última acción**: Tests para editor_plantillas.py implementados (58% coverage) - commit 09284e6
+**Próxima acción recomendada**:
+  - Opción 1) Alcanzar 80% coverage (falta 1%)
+  - Opción 2) Considerar Fase 1 completada y pasar a Fase 2
 **Bloqueadores**: Ninguno
