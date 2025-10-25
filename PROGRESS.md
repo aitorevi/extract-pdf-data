@@ -243,7 +243,15 @@
 **Commits**:
 - `dc77453` - Añadir ADR-001 y análisis arquitectónico detallado
 
-### Issue #9: Extraer funciones de limpieza de datos a módulo utils ✅
+### Issue #8: Debate Arquitectónico ✅ CERRADO
+- [x] Análisis completo de arquitectura actual
+- [x] ADR-001 creado con propuesta de refactorización
+- [x] Análisis detallado (60+ páginas) documentado
+- [x] Issue #8 creado y cerrado
+- [x] Decisión: Implementar solo Fase A
+- [x] Fases B y C documentadas como deuda técnica
+
+### Issue #9: Extraer funciones de limpieza de datos a módulo utils ✅ CERRADO
 - [x] Branch `feature/extract-data-cleaners` creado
 - [x] Módulo `src/utils/data_cleaners.py` creado
 - [x] Clase `DataCleaner` con métodos estáticos implementada
@@ -255,6 +263,13 @@
 - [x] 22 tests unitarios y de integración implementados
 - [x] Todos los tests pasando (176/176 + 2 skipped) ✅
 - [x] Coverage mantenido en 79% ✅
+- [x] PR #11 mergeado a main
+
+### Issue #10: Eliminar duplicaciones de código ✅ CERRADO
+- [x] Revisión de duplicaciones identificadas
+- [x] Decisión: Mantener estructura actual del Excel (necesaria por diseño)
+- [x] Duplicaciones de limpieza eliminadas en Issue #9
+- [x] Issue cerrado - No requiere más acción
 
 **Tests**: 176 passed + 2 skipped ✅
 
