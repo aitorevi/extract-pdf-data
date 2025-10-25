@@ -10,6 +10,7 @@ import os
 import re
 from datetime import datetime
 from typing import Dict, List, Any, Optional
+from src.utils.data_cleaners import DataCleaner
 
 
 class PDFExtractor:
@@ -365,16 +366,13 @@ class PDFExtractor:
             return self.limpiar_texto(texto_limpio)
 
     def limpiar_texto(self, texto: str) -> str:
-        """Limpia campos de texto."""
-        # Remover caracteres especiales problemáticos
-        texto = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', texto)
-        # Normalizar espacios
-        texto = re.sub(r'\s+', ' ', texto)
-        return texto.strip()
+        """Limpia campos de texto. Usa DataCleaner.clean_text()."""
+        return DataCleaner.clean_text(texto)
 
     def limpiar_fecha(self, texto: str) -> str:
         """
         Limpia y normaliza campos de fecha al formato DD/MM/YYYY.
+        Usa DataCleaner.clean_date().
 
         Args:
             texto (str): Texto que contiene una fecha
@@ -382,78 +380,11 @@ class PDFExtractor:
         Returns:
             str: Fecha en formato DD/MM/YYYY o texto original si no se reconoce
         """
-        from datetime import datetime
-
-        texto = self.limpiar_texto(texto)
-
-        # Intentar parsear diferentes formatos de fecha
-        formatos = [
-            '%d/%m/%Y',      # DD/MM/YYYY
-            '%d-%m-%Y',      # DD-MM-YYYY
-            '%Y/%m/%d',      # YYYY/MM/DD
-            '%Y-%m-%d',      # YYYY-MM-DD
-            '%d/%m/%y',      # DD/MM/YY
-            '%d-%m-%y',      # DD-MM-YY
-        ]
-
-        for formato in formatos:
-            try:
-                fecha_obj = datetime.strptime(texto.strip(), formato)
-                # Convertir siempre a DD/MM/YYYY
-                return fecha_obj.strftime('%d/%m/%Y')
-            except ValueError:
-                continue
-
-        # Si no se puede parsear, intentar extraer con regex
-        patrones_fecha = [
-            r'\d{1,2}[/-]\d{1,2}[/-]\d{4}',  # DD/MM/YYYY o DD-MM-YYYY
-            r'\d{4}[/-]\d{1,2}[/-]\d{1,2}',  # YYYY/MM/DD o YYYY-MM-DD
-        ]
-
-        for patron in patrones_fecha:
-            match = re.search(patron, texto)
-            if match:
-                fecha_encontrada = match.group()
-                # Intentar parsear lo encontrado
-                for formato in formatos:
-                    try:
-                        fecha_obj = datetime.strptime(fecha_encontrada, formato)
-                        return fecha_obj.strftime('%d/%m/%Y')
-                    except ValueError:
-                        continue
-
-        return texto  # Devolver original si no se reconoce patrón
+        return DataCleaner.clean_date(texto)
 
     def limpiar_numerico(self, texto: str) -> str:
-        """Limpia y normaliza campos numéricos."""
-        # Remover caracteres no numéricos excepto puntos, comas y signos
-        texto_limpio = re.sub(r'[^\d.,+-]', '', texto)
-
-        # Manejar formato europeo (1.234,56) vs americano (1,234.56)
-        if ',' in texto_limpio and '.' in texto_limpio:
-            # Si hay ambos, asumir formato europeo si la coma está después del punto
-            if texto_limpio.rfind(',') > texto_limpio.rfind('.'):
-                # Formato europeo: 1.234,56
-                texto_limpio = texto_limpio.replace('.', '').replace(',', '.')
-            else:
-                # Formato americano: 1,234.56
-                texto_limpio = texto_limpio.replace(',', '')
-        elif ',' in texto_limpio:
-            # Solo coma - podría ser decimal europeo o separador de miles
-            partes = texto_limpio.split(',')
-            if len(partes) == 2 and len(partes[1]) <= 2:
-                # Probablemente decimal: 123,45
-                texto_limpio = texto_limpio.replace(',', '.')
-            else:
-                # Probablemente separador de miles: 1,234
-                texto_limpio = texto_limpio.replace(',', '')
-
-        # Validar que es un número válido
-        try:
-            float(texto_limpio)
-            return texto_limpio
-        except ValueError:
-            return texto.strip()  # Devolver original si no se puede convertir
+        """Limpia y normaliza campos numéricos. Usa DataCleaner.clean_numeric()."""
+        return DataCleaner.clean_numeric(texto)
 
     def procesar_directorio_facturas(self) -> List[Dict[str, Any]]:
         """
