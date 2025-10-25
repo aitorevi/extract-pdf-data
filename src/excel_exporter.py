@@ -29,6 +29,33 @@ class ExcelExporter:
         # Crear directorio de salida si no existe
         os.makedirs(directorio_salida, exist_ok=True)
 
+    def _filtrar_columnas_estandar(self, datos: List[Dict[str, Any]], excluir_duplicados: bool = True, excluir_errores: bool = True) -> List[Dict[str, Any]]:
+        """
+        Filtra solo las columnas estándar (excluye las que empiezan con _).
+        Opcionalmente excluye registros duplicados y con errores.
+
+        Args:
+            datos (List[Dict[str, Any]]): Datos originales con todos los campos
+            excluir_duplicados (bool): Si True, excluye facturas marcadas como duplicadas
+            excluir_errores (bool): Si True, excluye facturas con errores de procesamiento
+
+        Returns:
+            List[Dict[str, Any]]: Datos filtrados solo con columnas estándar
+        """
+        datos_filtrados = []
+        for registro in datos:
+            # Excluir duplicados si está activado
+            if excluir_duplicados and registro.get('_Duplicado', False):
+                continue
+
+            # Excluir registros con errores si está activado
+            if excluir_errores and '_Error' in registro:
+                continue
+
+            registro_filtrado = {k: v for k, v in registro.items() if not k.startswith('_')}
+            datos_filtrados.append(registro_filtrado)
+        return datos_filtrados
+
     def exportar_excel_basico(self, nombre_archivo: Optional[str] = None) -> str:
         """
         Exporta los datos a un archivo Excel básico usando pandas.
@@ -47,14 +74,46 @@ class ExcelExporter:
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
+        # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
+        # Y excluir duplicados y errores
+        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True, excluir_errores=True)
+
         # Crear DataFrame
-        df = pd.DataFrame(self.datos)
+        df = pd.DataFrame(datos_estandar)
 
         # Exportar a Excel
         with pd.ExcelWriter(ruta_completa, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name='Facturas', index=False)
 
         print(f"OK Excel basico exportado: {ruta_completa}")
+        return ruta_completa
+
+    def exportar_excel_completo(self, nombre_archivo: Optional[str] = None) -> str:
+        """
+        Exporta TODOS los datos incluyendo metadatos (para debugging y control).
+
+        Args:
+            nombre_archivo (str, optional): Nombre del archivo. Si None, se genera automáticamente.
+
+        Returns:
+            str: Ruta del archivo generado
+        """
+        if not self.datos:
+            raise ValueError("No hay datos para exportar")
+
+        if nombre_archivo is None:
+            nombre_archivo = f"facturas_completo_debug_{self.timestamp}.xlsx"
+
+        ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
+
+        # Crear DataFrame con TODOS los datos (sin filtrar)
+        df = pd.DataFrame(self.datos)
+
+        # Exportar a Excel
+        with pd.ExcelWriter(ruta_completa, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Datos_Completos', index=False)
+
+        print(f"OK Excel completo (debug) exportado: {ruta_completa}")
         return ruta_completa
 
     def exportar_excel_formateado(self, nombre_archivo: Optional[str] = None) -> str:
@@ -75,16 +134,16 @@ class ExcelExporter:
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
-        # Crear DataFrame
-        df = pd.DataFrame(self.datos)
+        # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
+        # Y excluir duplicados y errores
+        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True, excluir_errores=True)
 
-        # Separar datos por estado (exitosos vs errores)
-        if 'Error' in df.columns:
-            df_exitosos = df[df['Error'].isna()].copy()
-            df_errores = df[df['Error'].notna()].copy()
-        else:
-            df_exitosos = df.copy()
-            df_errores = pd.DataFrame()
+        # Crear DataFrame - este ya contiene solo registros exitosos sin duplicados
+        df = pd.DataFrame(datos_estandar)
+
+        # df ya está filtrado, representa solo facturas exitosas
+        df_exitosos = df.copy()
+        df_errores = pd.DataFrame()  # No exportamos errores en el Excel formateado
 
         # Crear workbook
         wb = Workbook()
@@ -120,18 +179,24 @@ class ExcelExporter:
 
         # Información general
         row = 3
-        # Calcular facturas exitosas y con errores
-        if 'Error' in df.columns:
-            facturas_exitosas = len(df[df['Error'].isna()])
-            facturas_con_errores = len(df[df['Error'].notna()])
+        # Calcular facturas exitosas, con errores y duplicadas desde datos originales
+        df_original = pd.DataFrame(self.datos)
+
+        facturas_duplicadas = len(df_original[df_original.get('_Duplicado', pd.Series([False] * len(df_original))) == True]) if '_Duplicado' in df_original.columns else 0
+
+        if '_Error' in df_original.columns:
+            facturas_exitosas = len(df_original[(df_original['_Error'].isna()) & (df_original.get('_Duplicado', False) == False)])
+            facturas_con_errores = len(df_original[df_original['_Error'].notna()])
         else:
             facturas_exitosas = len(df)
             facturas_con_errores = 0
 
         info_general = [
             ("Fecha de procesamiento:", datetime.now().strftime("%d/%m/%Y %H:%M:%S")),
-            ("Total de facturas:", len(df)),
+            ("Total de facturas procesadas:", len(df_original)),
+            ("Facturas únicas exportadas:", len(df)),
             ("Facturas exitosas:", facturas_exitosas),
+            ("Facturas duplicadas (excluidas):", facturas_duplicadas),
             ("Facturas con errores:", facturas_con_errores),
         ]
 
@@ -242,9 +307,10 @@ class ExcelExporter:
 
         row += 2
 
-        # Archivos con errores
-        if 'Error' in df.columns:
-            df_errores = df[df['Error'].notna()]
+        # Archivos con errores - usar datos originales
+        df_original = pd.DataFrame(self.datos)
+        if '_Error' in df_original.columns:
+            df_errores = df_original[df_original['_Error'].notna()]
         else:
             df_errores = pd.DataFrame()
 
@@ -254,28 +320,33 @@ class ExcelExporter:
             row += 1
 
             for _, factura in df_errores.iterrows():
-                ws[f'A{row}'] = factura.get('Archivo', 'N/A')
-                ws[f'B{row}'] = factura.get('Error', 'Error desconocido')
+                ws[f'A{row}'] = factura.get('_Archivo', 'N/A')
+                ws[f'B{row}'] = factura.get('_Error', 'Error desconocido')
                 row += 1
 
     def _calcular_estadisticas_proveedores(self, df: pd.DataFrame) -> List[Dict[str, Any]]:
         """Calcula estadísticas por proveedor."""
         stats = []
-        proveedores = df['Proveedor_ID'].value_counts()
+        # Usar datos originales para obtener metadatos
+        df_original = pd.DataFrame(self.datos)
+        if '_Proveedor_ID' not in df_original.columns:
+            return stats
+
+        proveedores = df_original['_Proveedor_ID'].value_counts()
 
         for proveedor_id, total in proveedores.items():
-            df_proveedor = df[df['Proveedor_ID'] == proveedor_id]
+            df_proveedor = df_original[df_original['_Proveedor_ID'] == proveedor_id]
 
-            # Contar exitosas: las que no tienen columna 'Error' o la tienen pero es NaN
-            if 'Error' in df_proveedor.columns:
-                exitosas = len(df_proveedor[df_proveedor['Error'].isna()])
+            # Contar exitosas: las que no tienen columna '_Error' o la tienen pero es NaN
+            if '_Error' in df_proveedor.columns:
+                exitosas = len(df_proveedor[df_proveedor['_Error'].isna()])
             else:
                 exitosas = total
 
             errores = total - exitosas
             porcentaje = round((exitosas / total) * 100, 1) if total > 0 else 0
 
-            nombre_proveedor = df_proveedor['Proveedor_Nombre'].iloc[0] if 'Proveedor_Nombre' in df_proveedor.columns else 'N/A'
+            nombre_proveedor = df_proveedor['_Proveedor_Nombre'].iloc[0] if '_Proveedor_Nombre' in df_proveedor.columns else 'N/A'
 
             stats.append({
                 'proveedor_id': proveedor_id,
@@ -292,9 +363,8 @@ class ExcelExporter:
         """Calcula estadísticas de éxito por campo."""
         stats = {}
 
-        # Obtener todos los campos excepto los meta
-        campos_meta = {'Archivo', 'Proveedor_ID', 'Proveedor_Nombre', 'Fecha_Procesamiento', 'Error'}
-        campos = [col for col in df.columns if col not in campos_meta]
+        # df ya está filtrado (solo columnas estándar), no necesitamos excluir nada
+        campos = [col for col in df.columns]
 
         for campo in campos:
             if campo in df.columns:
@@ -328,8 +398,12 @@ class ExcelExporter:
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
+        # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
+        # Y excluir duplicados y errores
+        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True, excluir_errores=True)
+
         # Crear DataFrame y exportar
-        df = pd.DataFrame(self.datos)
+        df = pd.DataFrame(datos_estandar)
         df.to_csv(ruta_completa, index=False, encoding='utf-8-sig', sep=';')
 
         print(f"OK CSV exportado: {ruta_completa}")
@@ -353,14 +427,18 @@ class ExcelExporter:
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
+        # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
+        # Y excluir duplicados y errores
+        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True, excluir_errores=True)
+
         # Agregar metadatos
         exportacion = {
             "metadata": {
                 "fecha_exportacion": datetime.now().isoformat(),
-                "total_facturas": len(self.datos),
+                "total_facturas": len(datos_estandar),
                 "version": "1.0"
             },
-            "facturas": self.datos
+            "facturas": datos_estandar
         }
 
         with open(ruta_completa, 'w', encoding='utf-8') as f:

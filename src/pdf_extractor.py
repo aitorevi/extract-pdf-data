@@ -13,18 +13,41 @@ from typing import Dict, List, Any, Optional
 
 
 class PDFExtractor:
-    def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas"):
+    # Mapeo de nombres de campos en plantillas a nombres de columnas estándar
+    MAPEO_CAMPOS = {
+        # Campos principales (capturados del PDF)
+        'FechaFactura': 'FechaFactura',
+        'FechaVto': 'FechaVto',
+        'NumFactura': 'NumFactura',
+        'Base': 'Base',
+        # Compatibilidad con nombres antiguos
+        'num-factura': 'NumFactura',
+        'numero-factura': 'NumFactura',
+        'fecha-factura': 'FechaFactura',
+        'fecha': 'FechaFactura',
+        'fecha-vto': 'FechaVto',
+        'fecha-vencimiento': 'FechaVto',
+        'base': 'Base',
+        'base-imponible': 'Base',
+    }
+
+    def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas",
+                 trimestre: str = "", año: str = ""):
         """
         Inicializa el extractor de PDF.
 
         Args:
             directorio_facturas (str): Directorio donde están las facturas PDF
             directorio_plantillas (str): Directorio donde están las plantillas JSON
+            trimestre (str): Trimestre fiscal (Q1, Q2, Q3, Q4)
+            año (str): Año fiscal
         """
         self.directorio_facturas = directorio_facturas
         self.directorio_plantillas = directorio_plantillas
         self.plantillas_cargadas = {}
         self.resultados = []
+        self.trimestre = trimestre
+        self.año = año
 
     def cargar_plantillas(self) -> bool:
         """
@@ -48,7 +71,8 @@ class PDFExtractor:
 
                     # Validar estructura básica de la plantilla
                     if self.validar_plantilla(plantilla):
-                        proveedor_id = plantilla.get('proveedor_id', archivo)
+                        # Usar nombre de archivo sin extensión como identificador
+                        proveedor_id = os.path.splitext(archivo)[0]
                         self.plantillas_cargadas[proveedor_id] = plantilla
                         plantillas_encontradas += 1
                         print(f"OK Plantilla cargada: {archivo} -> {plantilla.get('nombre_proveedor', proveedor_id)}")
@@ -71,7 +95,7 @@ class PDFExtractor:
         Returns:
             bool: True si la plantilla es válida
         """
-        campos_requeridos = ['proveedor_id', 'nombre_proveedor', 'campos']
+        campos_requeridos = ['nombre_proveedor', 'campos']
 
         # Verificar campos principales
         for campo in campos_requeridos:
@@ -104,11 +128,12 @@ class PDFExtractor:
 
     def identificar_proveedor(self, ruta_pdf: str) -> Optional[str]:
         """
-        Identifica el proveedor de una factura PDF.
+        Identifica el proveedor de una factura PDF usando campos de identificación capturados.
 
         Estrategias:
-        1. Por nombre de archivo
-        2. Por contenido del PDF (buscar texto identificativo)
+        1. Extrae CIF y Nombre de las coordenadas de identificación de cada plantilla
+        2. Compara con coincidencia del 85% para nombre (permite variaciones)
+        3. CIF debe coincidir exactamente si está presente
 
         Args:
             ruta_pdf (str): Ruta al archivo PDF
@@ -116,42 +141,114 @@ class PDFExtractor:
         Returns:
             Optional[str]: ID del proveedor identificado o None
         """
-        nombre_archivo = os.path.basename(ruta_pdf).lower()
-
-        # Estrategia 1: Por nombre de archivo
-        for proveedor_id, plantilla in self.plantillas_cargadas.items():
-            nombre_proveedor = plantilla.get('nombre_proveedor', '').lower()
-
-            # Buscar coincidencias en el nombre del archivo
-            palabras_clave = nombre_proveedor.split()
-            for palabra in palabras_clave:
-                if len(palabra) > 3 and palabra in nombre_archivo:
-                    print(f"Proveedor identificado por archivo: {proveedor_id}")
-                    return proveedor_id
-
-        # Estrategia 2: Por contenido del PDF
         try:
             with pdfplumber.open(ruta_pdf) as pdf:
-                if pdf.pages:
-                    texto_pagina = pdf.pages[0].extract_text() or ""
-                    texto_pagina = texto_pagina.lower()
+                if not pdf.pages:
+                    print(f"⚠ PDF sin páginas: {os.path.basename(ruta_pdf)}")
+                    return None
 
-                    for proveedor_id, plantilla in self.plantillas_cargadas.items():
-                        nombre_proveedor = plantilla.get('nombre_proveedor', '').lower()
+                pagina = pdf.pages[0]
 
-                        # Buscar el nombre del proveedor en el contenido
-                        palabras_clave = nombre_proveedor.split()
-                        coincidencias = sum(1 for palabra in palabras_clave if len(palabra) > 3 and palabra in texto_pagina)
+                # Probar cada plantilla
+                for proveedor_id, plantilla in self.plantillas_cargadas.items():
+                    print(f"  Probando plantilla: {proveedor_id}")
 
-                        if coincidencias >= len(palabras_clave) // 2:  # Al menos 50% de coincidencias
-                            print(f"Proveedor identificado por contenido: {proveedor_id}")
+                    # Extraer campos de identificación de esta plantilla
+                    cif_extraido = None
+                    nombre_extraido = None
+
+                    for campo in plantilla.get('campos', []):
+                        if not campo.get('es_identificacion', False):
+                            continue
+
+                        nombre_campo = campo['nombre']
+                        coordenadas = campo['coordenadas']
+
+                        try:
+                            bbox = tuple(coordenadas)
+                            area_recortada = pagina.crop(bbox)
+                            texto = area_recortada.extract_text() or ""
+                            texto = texto.strip().lower()
+
+                            if nombre_campo == 'CIF_Identificacion':
+                                cif_extraido = texto
+                                print(f"    CIF extraído: {cif_extraido}")
+                            elif nombre_campo == 'Nombre_Identificacion':
+                                nombre_extraido = texto
+                                print(f"    Nombre extraído: {nombre_extraido}")
+                        except Exception as e:
+                            print(f"    Error extrayendo {nombre_campo}: {e}")
+
+                    # Validar coincidencias - CUALQUIERA de las dos sirve
+                    cif_plantilla = plantilla.get('cif_proveedor', '').strip().lower()
+                    nombre_plantilla = plantilla.get('nombre_proveedor', '').strip().lower()
+
+                    # Opción 1: Verificar CIF (debe coincidir exactamente)
+                    if cif_extraido and cif_plantilla:
+                        if cif_extraido == cif_plantilla:
+                            print(f"OK Proveedor identificado por CIF: {proveedor_id}")
+                            return proveedor_id
+                        else:
+                            print(f"    CIF no coincide: extraido='{cif_extraido}' vs plantilla='{cif_plantilla}'")
+
+                    # Opción 2: Verificar Nombre (85% de coincidencia)
+                    if nombre_extraido and nombre_plantilla:
+                        coincidencia = self._calcular_similitud(nombre_extraido, nombre_plantilla)
+                        print(f"    Similitud nombre: {coincidencia:.1f}%")
+
+                        if coincidencia >= 85.0:
+                            print(f"OK Proveedor identificado por nombre ({coincidencia:.1f}% coincidencia): {proveedor_id}")
                             return proveedor_id
 
         except Exception as e:
-            print(f"Error leyendo PDF para identificación: {e}")
+            print(f"Error identificando proveedor: {e}")
 
-        print(f"⚠ No se pudo identificar proveedor para: {os.path.basename(ruta_pdf)}")
+        print(f"AVISO: No se pudo identificar proveedor para: {os.path.basename(ruta_pdf)}")
         return None
+
+    def _calcular_similitud(self, texto1: str, texto2: str) -> float:
+        """
+        Calcula el porcentaje de similitud entre dos textos.
+        Ignora puntuación y espacios extras.
+
+        Args:
+            texto1: Primer texto
+            texto2: Segundo texto
+
+        Returns:
+            float: Porcentaje de similitud (0-100)
+        """
+        import re
+
+        # Normalizar textos: minúsculas, quitar puntuación y espacios extras
+        def normalizar(texto):
+            texto = texto.lower().strip()
+            # Quitar puntuación
+            texto = re.sub(r'[.,;:!?¿¡()\[\]{}"\'-]', '', texto)
+            # Normalizar espacios
+            texto = re.sub(r'\s+', ' ', texto).strip()
+            return texto
+
+        t1 = normalizar(texto1)
+        t2 = normalizar(texto2)
+
+        # Si son exactamente iguales
+        if t1 == t2:
+            return 100.0
+
+        # Contar caracteres coincidentes en la misma posición
+        min_len = min(len(t1), len(t2))
+        max_len = max(len(t1), len(t2))
+
+        if max_len == 0:
+            return 0.0
+
+        coincidencias = sum(1 for i in range(min_len) if t1[i] == t2[i])
+
+        # Penalizar diferencia de longitud
+        similitud = (coincidencias / max_len) * 100
+
+        return similitud
 
     def extraer_datos_factura(self, ruta_pdf: str, proveedor_id: str) -> Dict[str, Any]:
         """
@@ -168,12 +265,25 @@ class PDFExtractor:
             raise ValueError(f"Plantilla no encontrada para proveedor: {proveedor_id}")
 
         plantilla = self.plantillas_cargadas[proveedor_id]
+
+        # Inicializar con nombres de columnas estándar (todos vacíos por defecto)
+        # Solo los 9 campos requeridos por el usuario
         datos_factura = {
-            'Archivo': os.path.basename(ruta_pdf),
-            'Proveedor_ID': proveedor_id,
-            'Proveedor_Nombre': plantilla.get('nombre_proveedor', ''),
-            'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'CIF': plantilla.get('cif_proveedor', ''),  # CIF del proveedor desde la plantilla
+            'FechaFactura': '',
+            'Trimestre': self.trimestre,
+            'Año': self.año,
+            'FechaVto': '',
+            'NumFactura': '',
+            'FechaPago': '',
+            'Base': '',
+            'ComPaypal': '',
         }
+
+        # Metadatos adicionales (para uso interno, con prefijo _)
+        datos_factura['_Archivo'] = os.path.basename(ruta_pdf)
+        datos_factura['_Proveedor_Nombre'] = plantilla.get('nombre_proveedor', '')
+        datos_factura['_Fecha_Procesamiento'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         try:
             with pdfplumber.open(ruta_pdf) as pdf:
@@ -183,8 +293,10 @@ class PDFExtractor:
                 # Procesar primera página (asumimos datos en primera página)
                 pagina = pdf.pages[0]
 
+                campos_extraidos_exitosamente = 0
+
                 for campo in plantilla['campos']:
-                    nombre_campo = campo['nombre']
+                    nombre_campo_plantilla = campo['nombre']
                     coordenadas = campo['coordenadas']
                     tipo_campo = campo.get('tipo', 'texto')
 
@@ -196,19 +308,36 @@ class PDFExtractor:
 
                         # Limpiar y procesar según tipo
                         valor_procesado = self.procesar_campo(texto_extraido, tipo_campo)
-                        datos_factura[nombre_campo] = valor_procesado
 
-                        print(f"  {nombre_campo}: {valor_procesado}")
+                        # Mapear nombre de campo de plantilla a nombre de columna estándar
+                        nombre_columna = self.MAPEO_CAMPOS.get(nombre_campo_plantilla, nombre_campo_plantilla)
+
+                        # Solo actualizar si es un campo estándar
+                        if nombre_columna in datos_factura:
+                            if valor_procesado and valor_procesado != "":
+                                datos_factura[nombre_columna] = valor_procesado
+                                campos_extraidos_exitosamente += 1
+                                print(f"  {nombre_columna}: {valor_procesado}")
+                            else:
+                                print(f"  {nombre_columna}: (vacío)")
+                        else:
+                            # Campo no estándar, guardarlo con prefijo _ para metadatos
+                            datos_factura[f'_{nombre_campo_plantilla}'] = valor_procesado
+                            print(f"  {nombre_campo_plantilla} (no estándar): {valor_procesado}")
 
                     except Exception as e:
-                        print(f"  Error extrayendo {nombre_campo}: {e}")
-                        datos_factura[nombre_campo] = "ERROR"
+                        print(f"  Error extrayendo {nombre_campo_plantilla}: {e}")
+                        nombre_columna = self.MAPEO_CAMPOS.get(nombre_campo_plantilla, nombre_campo_plantilla)
+                        if nombre_columna in datos_factura:
+                            datos_factura[nombre_columna] = "ERROR"
+
+                # Validar que se extrajeron datos útiles
+                if campos_extraidos_exitosamente == 0:
+                    raise Exception("No se pudo extraer ningún campo válido - posible error en plantilla o PDF no compatible")
 
         except Exception as e:
             print(f"Error procesando PDF {ruta_pdf}: {e}")
-            # Llenar con errores todos los campos de la plantilla
-            for campo in plantilla['campos']:
-                datos_factura[campo['nombre']] = "ERROR_PDF"
+            datos_factura['_Error'] = str(e)
 
         return datos_factura
 
@@ -244,20 +373,54 @@ class PDFExtractor:
         return texto.strip()
 
     def limpiar_fecha(self, texto: str) -> str:
-        """Limpia y normaliza campos de fecha."""
+        """
+        Limpia y normaliza campos de fecha al formato DD/MM/YYYY.
+
+        Args:
+            texto (str): Texto que contiene una fecha
+
+        Returns:
+            str: Fecha en formato DD/MM/YYYY o texto original si no se reconoce
+        """
+        from datetime import datetime
+
         texto = self.limpiar_texto(texto)
 
-        # Patrones comunes de fecha
+        # Intentar parsear diferentes formatos de fecha
+        formatos = [
+            '%d/%m/%Y',      # DD/MM/YYYY
+            '%d-%m-%Y',      # DD-MM-YYYY
+            '%Y/%m/%d',      # YYYY/MM/DD
+            '%Y-%m-%d',      # YYYY-MM-DD
+            '%d/%m/%y',      # DD/MM/YY
+            '%d-%m-%y',      # DD-MM-YY
+        ]
+
+        for formato in formatos:
+            try:
+                fecha_obj = datetime.strptime(texto.strip(), formato)
+                # Convertir siempre a DD/MM/YYYY
+                return fecha_obj.strftime('%d/%m/%Y')
+            except ValueError:
+                continue
+
+        # Si no se puede parsear, intentar extraer con regex
         patrones_fecha = [
             r'\d{1,2}[/-]\d{1,2}[/-]\d{4}',  # DD/MM/YYYY o DD-MM-YYYY
             r'\d{4}[/-]\d{1,2}[/-]\d{1,2}',  # YYYY/MM/DD o YYYY-MM-DD
-            r'\d{1,2}\s+de\s+\w+\s+de\s+\d{4}',  # DD de MMMM de YYYY
         ]
 
         for patron in patrones_fecha:
             match = re.search(patron, texto)
             if match:
-                return match.group()
+                fecha_encontrada = match.group()
+                # Intentar parsear lo encontrado
+                for formato in formatos:
+                    try:
+                        fecha_obj = datetime.strptime(fecha_encontrada, formato)
+                        return fecha_obj.strftime('%d/%m/%Y')
+                    except ValueError:
+                        continue
 
         return texto  # Devolver original si no se reconoce patrón
 
@@ -312,6 +475,8 @@ class PDFExtractor:
         print(f"\n=== PROCESANDO {len(archivos_pdf)} FACTURAS ===")
 
         resultados = []
+        # Set para detectar duplicados: (CIF, NumFactura, FechaFactura)
+        facturas_procesadas = set()
 
         for archivo_pdf in archivos_pdf:
             ruta_completa = os.path.join(self.directorio_facturas, archivo_pdf)
@@ -323,26 +488,65 @@ class PDFExtractor:
             if proveedor_id:
                 try:
                     datos = self.extraer_datos_factura(ruta_completa, proveedor_id)
+
+                    # Verificar duplicados usando CIF + NumFactura + FechaFactura
+                    clave_duplicado = (
+                        datos.get('CIF', ''),
+                        datos.get('NumFactura', ''),
+                        datos.get('FechaFactura', '')
+                    )
+
+                    if clave_duplicado in facturas_procesadas:
+                        print(f"WARN Factura duplicada detectada (CIF: {datos.get('CIF')}, Num: {datos.get('NumFactura')}, Fecha: {datos.get('FechaFactura')})")
+                        # Marcar como duplicado en metadatos
+                        datos['_Duplicado'] = True
+                        datos['_Motivo_Duplicado'] = f"Ya existe factura con mismo CIF, NumFactura y FechaFactura"
+                    else:
+                        facturas_procesadas.add(clave_duplicado)
+                        datos['_Duplicado'] = False
+
                     resultados.append(datos)
                     print(f"OK Procesado exitosamente")
                 except Exception as e:
                     print(f"ERROR procesando: {e}")
-                    # Agregar registro de error
+                    # Agregar registro de error con metadatos
                     datos_error = {
-                        'Archivo': archivo_pdf,
-                        'Proveedor_ID': proveedor_id,
-                        'Error': str(e),
-                        'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        # Campos estándar vacíos
+                        'CIF': '',
+                        'FechaFactura': '',
+                        'Trimestre': self.trimestre,
+                        'Año': self.año,
+                        'FechaVto': '',
+                        'NumFactura': '',
+                        'FechaPago': '',
+                        'Base': '',
+                        'ComPaypal': '',
+                        # Metadatos de error
+                        '_Archivo': archivo_pdf,
+                        '_Proveedor_ID': proveedor_id,
+                        '_Error': str(e),
+                        '_Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     resultados.append(datos_error)
             else:
                 print(f"ERROR Proveedor no identificado")
-                # Agregar registro de proveedor no identificado
+                # Agregar registro de proveedor no identificado con metadatos
                 datos_error = {
-                    'Archivo': archivo_pdf,
-                    'Proveedor_ID': 'NO_IDENTIFICADO',
-                    'Error': 'Proveedor no identificado',
-                    'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    # Campos estándar vacíos
+                    'CIF': '',
+                    'FechaFactura': '',
+                    'Trimestre': self.trimestre,
+                    'Año': self.año,
+                    'FechaVto': '',
+                    'NumFactura': '',
+                    'FechaPago': '',
+                    'Base': '',
+                    'ComPaypal': '',
+                    # Metadatos de error
+                    '_Archivo': archivo_pdf,
+                    '_Proveedor_ID': 'NO_IDENTIFICADO',
+                    '_Error': 'Proveedor no identificado',
+                    '_Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
                 resultados.append(datos_error)
 
@@ -363,18 +567,19 @@ class PDFExtractor:
             return {}
 
         total_facturas = len(self.resultados)
-        facturas_con_error = sum(1 for r in self.resultados if 'Error' in r)
-        facturas_exitosas = total_facturas - facturas_con_error
+        facturas_con_error = sum(1 for r in self.resultados if '_Error' in r)
+        facturas_duplicadas = sum(1 for r in self.resultados if r.get('_Duplicado', False))
+        facturas_exitosas = total_facturas - facturas_con_error - facturas_duplicadas
 
         # Estadísticas por proveedor
         proveedores = {}
         for resultado in self.resultados:
-            proveedor = resultado.get('Proveedor_ID', 'DESCONOCIDO')
+            proveedor = resultado.get('_Proveedor_ID', 'DESCONOCIDO')
             if proveedor not in proveedores:
                 proveedores[proveedor] = {'total': 0, 'exitosos': 0, 'errores': 0}
 
             proveedores[proveedor]['total'] += 1
-            if 'Error' in resultado:
+            if '_Error' in resultado:
                 proveedores[proveedor]['errores'] += 1
             else:
                 proveedores[proveedor]['exitosos'] += 1
@@ -382,6 +587,7 @@ class PDFExtractor:
         return {
             'total_facturas': total_facturas,
             'facturas_exitosas': facturas_exitosas,
+            'facturas_duplicadas': facturas_duplicadas,
             'facturas_con_error': facturas_con_error,
             'tasa_exito': round((facturas_exitosas / total_facturas) * 100, 2) if total_facturas > 0 else 0,
             'proveedores': proveedores,

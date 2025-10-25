@@ -90,11 +90,31 @@ class FacturaExtractorApp:
         """
         print("\n=== MODO: PROCESAMIENTO DE FACTURAS ===")
 
-        # Inicializar extractor
-        self.pdf_extractor = PDFExtractor()
+        # Solicitar información fiscal al usuario
+        print("\nDatos fiscales para la exportación:")
+        trimestre_input = input("Ingresa el trimestre (1, 2, 3 o 4): ").strip()
+        año = input("Ingresa el año (ej: 2025): ").strip()
+
+        # Validar entrada de trimestre (solo acepta 1, 2, 3 o 4)
+        if trimestre_input in ['1', '2', '3', '4']:
+            trimestre = f"{trimestre_input}T"
+            print(f"✓ Trimestre: {trimestre}")
+        else:
+            print(f"ERROR: Trimestre '{trimestre_input}' no válido. Debe ser 1, 2, 3 o 4.")
+            return False
+
+        # Validar entrada de año
+        if not año.isdigit() or len(año) != 4:
+            print(f"ERROR: Año '{año}' no válido. Debe ser un año de 4 dígitos (ej: 2025).")
+            return False
+
+        print(f"✓ Año: {año}")
+
+        # Inicializar extractor con datos fiscales
+        self.pdf_extractor = PDFExtractor(trimestre=trimestre, año=año)
 
         # Cargar plantillas
-        print("Cargando plantillas...")
+        print("\nCargando plantillas...")
         if not self.pdf_extractor.cargar_plantillas():
             print("ERROR: No se pudieron cargar plantillas.")
             print("   Usa el modo 'coordenadas' para crear plantillas primero.")
@@ -123,6 +143,7 @@ class FacturaExtractorApp:
         print(f"\n=== RESUMEN DEL PROCESAMIENTO ===")
         print(f"Total facturas: {stats['total_facturas']}")
         print(f"Procesadas exitosamente: {stats['facturas_exitosas']} ({stats['tasa_exito']}%)")
+        print(f"Duplicadas (excluidas): {stats['facturas_duplicadas']}")
         print(f"Con errores: {stats['facturas_con_error']}")
         print(f"Plantillas usadas: {stats['plantillas_disponibles']}")
 
@@ -150,7 +171,10 @@ class FacturaExtractorApp:
             archivos_generados = {}
 
             if formato == "excel" or formato == "todos":
+                # Excel principal: solo las 9 columnas requeridas
                 archivos_generados['excel'] = self.exporter.exportar_excel_formateado()
+                # Excel completo: con todos los metadatos para debugging
+                archivos_generados['excel_debug'] = self.exporter.exportar_excel_completo()
 
             if formato == "csv" or formato == "todos":
                 archivos_generados['csv'] = self.exporter.exportar_csv()
