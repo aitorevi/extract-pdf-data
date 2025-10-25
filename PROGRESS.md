@@ -4,12 +4,13 @@
 
 ## 🎯 Estado Actual
 
-- **Rama actual**: `main`
-- **Fase activa**: FASE 2 - Arquitectura y Code Quality (INICIADA)
-- **Issues completados**: Fase 1 completada (#1, #2, #3, tests main.py y editor_plantillas.py) ✅
-- **Último logro**: Análisis arquitectónico completo y ADR-001 creado
-- **Coverage total actual**: 79% ⭐ (Fase 1 completada)
-- **Próximo paso**: Debate y aprobación de propuesta arquitectónica (Issue #8)
+- **Rama actual**: `feature/extract-data-cleaners`
+- **Fase activa**: FASE 2 - Arquitectura y Code Quality (Fase A COMPLETADA ✅)
+- **Issues completados**: Fase 1 completa + Issue #9 (DataCleaners) ✅
+- **Último logro**: Refactorización DataCleaners completada - 95% coverage, 22 tests
+- **Coverage total actual**: 79% ⭐ (mantenido)
+- **Tests totales**: 176 passed + 2 skipped ✅
+- **Próximo paso**: Decidir si continuar con Fase B o detener refactorización
 
 ## ✅ Completado
 
@@ -227,12 +228,12 @@
 - [x] ADR-001 creado con propuesta de refactorización
 - [x] Análisis detallado (60+ páginas) documentado
 - [x] Issue #8 creado en GitHub
-- [ ] Esperando aprobación de propuesta
-- [ ] Crear issues específicos según aprobación
+- [x] Propuesta aprobada (sin logging)
+- [x] Fase A completada
 
 **Propuesta:** Refactorización Pragmática Incremental
-- **Fase A** (3h): Logging + DataCleaners + Eliminar dups
-- **Fase B** (5h): Repository + Service Layer
+- **Fase A** ✅ COMPLETADA: DataCleaners + Eliminar duplicaciones (sin logging)
+- **Fase B** (5h): Repository + Service Layer (opcional)
 - **Fase C** (5h): Dataclasses + Strategy (opcional)
 
 **Archivos creados:**
@@ -242,29 +243,72 @@
 **Commits**:
 - `dc77453` - Añadir ADR-001 y análisis arquitectónico detallado
 
+### Issue #9: Extraer funciones de limpieza de datos a módulo utils ✅
+- [x] Branch `feature/extract-data-cleaners` creado
+- [x] Módulo `src/utils/data_cleaners.py` creado
+- [x] Clase `DataCleaner` con métodos estáticos implementada
+- [x] Funciones extraídas desde PDFExtractor:
+  - `clean_text()` - Limpia espacios y caracteres especiales
+  - `clean_date()` - Normaliza fechas a DD/MM/YYYY
+  - `clean_numeric()` - Normaliza números (formato europeo/americano)
+- [x] PDFExtractor refactorizado para usar DataCleaner
+- [x] 22 tests unitarios y de integración implementados
+- [x] Todos los tests pasando (176/176 + 2 skipped) ✅
+- [x] Coverage mantenido en 79% ✅
+
+**Tests**: 176 passed + 2 skipped ✅
+
+**Coverage Detallado**:
+- src/utils/data_cleaners.py: **95% coverage** ✅
+- src/pdf_extractor.py: **90% coverage** (simplificado) ✅
+- Coverage total: **79%** (mantenido) ✅
+
+**Archivos creados**:
+- `src/utils/__init__.py` - Package utils
+- `src/utils/data_cleaners.py` - Clase DataCleaner con 3 métodos estáticos
+- `tests/test_data_cleaners.py` - 22 tests (4 clean_text, 7 clean_date, 10 clean_numeric, 1 integración)
+
+**Archivos modificados**:
+- `src/pdf_extractor.py` - Usa DataCleaner en lugar de métodos propios (eliminadas ~80 líneas)
+
+**Beneficios**:
+- ✅ **Reutilización**: Otros módulos pueden usar DataCleaner
+- ✅ **Testabilidad**: Funciones testeadas independientemente (95% coverage)
+- ✅ **Mantenibilidad**: Un solo lugar para cambios de limpieza
+- ✅ **Separación de responsabilidades**: PDFExtractor se enfoca en extraer
+- ✅ **Código más limpio**: Eliminadas duplicaciones
+
+**Commits**:
+- `73b1aa3` - Extraer funciones de limpieza de datos a módulo utils - Issue #9
+
 ## 🔄 En Progreso
 
-**FASE 2: Arquitectura y Code Quality** - Esperando aprobación de propuesta
+**FASE 2: Arquitectura y Code Quality** - Fase A completada ✅
 
 ## 📋 Próximos Pasos (en orden)
 
 ### Fase 2: Arquitectura y Code Quality (EN PROGRESO)
 
-**Esperando aprobación de propuesta** (Issue #8)
+**Fase A - COMPLETADA ✅**
+- [x] Issue #9: Extraer limpiadores de datos ✅
+- [x] Eliminar duplicaciones ✅
+- [x] ~~Issue: Implementar logging estructurado~~ (descartado por usuario)
 
-**Si se aprueba Fase A (3 horas):**
-- [ ] Issue #9: Implementar logging estructurado
-- [ ] Issue #10: Extraer limpiadores de datos
-- [ ] Issue #11: Eliminar duplicaciones menores
+**Opciones siguientes:**
 
-**Si se aprueba Fase B (5 horas adicionales):**
-- [ ] Issue #12: Crear TemplateRepository
-- [ ] Issue #13: Crear InvoiceExtractionService
-- [ ] Issue #14: Refactorizar main.py
+**Opción 1: Continuar con Fase B (5 horas adicionales):**
+- [ ] Issue #10: Crear TemplateRepository
+- [ ] Issue #11: Crear InvoiceExtractionService
+- [ ] Issue #12: Refactorizar main.py
 
-**Si se aprueba Fase C (5 horas adicionales - opcional):**
-- [ ] Issue #15: Agregar dataclasses
-- [ ] Issue #16: Refactorizar exporters con Strategy
+**Opción 2: Continuar con Fase C (5 horas adicionales - opcional):**
+- [ ] Issue #13: Agregar dataclasses
+- [ ] Issue #14: Refactorizar exporters con Strategy
+
+**Opción 3: Detener refactorización y continuar con otras fases:**
+- [ ] Fase 3: Configuración y Parametrización
+- [ ] Fase 4: Documentación
+- [ ] Fase 5: Features adicionales
 
 ### Issues Pendientes de Fase 1 (Opcionales)
 - [ ] Issue #5: Tests de integración end-to-end (opcional)
@@ -386,7 +430,7 @@ pytest -m unit
 ## 📊 Métricas
 
 ### Testing
-- **Tests totales**: 156 (154 passing + 2 skipped)
+- **Tests totales**: 178 (176 passing + 2 skipped)
 - **Tests por módulo**:
   - test_sample.py: 8 tests ✅
   - test_pdf_extractor.py: 54 passing + 2 skipped ✅
@@ -395,23 +439,25 @@ pytest -m unit
   - test_duplicate_detection.py: 9 tests ✅
   - test_error_handling_export.py: 11 tests ✅
   - test_main.py: 34 tests ✅
-  - test_editor_plantillas.py: 11 tests ✅ (nuevo)
+  - test_editor_plantillas.py: 11 tests ✅
+  - test_data_cleaners.py: 22 tests ✅ (nuevo)
 - **Fixtures compartidas**: 13
 - **Coverage actual**: **79% total** ⭐ (objetivo: 80%)
   - main.py: 91% ✅
   - excel_exporter.py: 81% ✅
-  - pdf_extractor.py: 91% ✅
+  - pdf_extractor.py: 90% ✅ (mejorado - refactorizado)
   - editor_plantillas.py: 58% ✅
-- **Módulos testeados**: 4/4 módulos principales ✅
+  - utils/data_cleaners.py: 95% ✅ (nuevo)
+- **Módulos testeados**: 5/5 módulos principales ✅
 
 ### Código
 - **Archivos principales**: 5 archivos en `src/`
-- **Utilidades**: 4 archivos en `utils/`
+- **Utilidades**: 5 archivos en `utils/` (nuevo: data_cleaners.py)
 - **Scripts**: 3 archivos en `scripts/`
-- **Tests**: 8 archivos de test
+- **Tests**: 9 archivos de test (nuevo: test_data_cleaners.py)
 
 ---
 
-**Última acción**: ADR-001 y análisis arquitectónico completo - commit dc77453
-**Próxima acción recomendada**: Esperar aprobación de Issue #8 para comenzar Fase A de refactorización
-**Bloqueadores**: Ninguno - esperando feedback del usuario
+**Última acción**: Issue #9 completado - Extraer DataCleaners a módulo utils - commit 73b1aa3
+**Próxima acción recomendada**: Decidir si continuar con Fase B (Repository/Service) o detener refactorización
+**Bloqueadores**: Ninguno - esperando decisión del usuario
