@@ -4,13 +4,13 @@
 
 ## 🎯 Estado Actual
 
-- **Rama actual**: `feature/extract-data-cleaners`
-- **Fase activa**: FASE 2 - Arquitectura y Code Quality (Fase A COMPLETADA ✅)
+- **Rama actual**: `main`
+- **Fase activa**: FASE 2 COMPLETADA ✅ | Decidiendo siguiente fase
 - **Issues completados**: Fase 1 completa + Issue #9 (DataCleaners) ✅
-- **Último logro**: Refactorización DataCleaners completada - 95% coverage, 22 tests
+- **Último logro**: PR #11 mergeado - Fase 2A completada con deuda técnica documentada
 - **Coverage total actual**: 79% ⭐ (mantenido)
 - **Tests totales**: 176 passed + 2 skipped ✅
-- **Próximo paso**: Decidir si continuar con Fase B o detener refactorización
+- **Próximo paso**: Elegir entre Fases 3, 4, 5, 6 o 7 según prioridades
 
 ## ✅ Completado
 
@@ -280,35 +280,120 @@
 
 **Commits**:
 - `73b1aa3` - Extraer funciones de limpieza de datos a módulo utils - Issue #9
+- `741ba0d` - Actualizar PROGRESS.md - Issue #9 completado
+- `440c777` - Merge PR #11 (squash merge to main)
+
+**PR**: #11 - Mergeado ✅
+
+---
+
+## 📌 Deuda Técnica Documentada
+
+Las siguientes refactorizaciones de **Fase 2** quedan como **deuda técnica** para implementar en el futuro cuando sea necesario:
+
+### Fase 2B - Repository + Service Layer (~5h)
+- Crear `TemplateRepository` para gestión de plantillas
+- Crear `InvoiceExtractionService` para lógica de negocio
+- Refactorizar `main.py` para usar servicios
+- Separación de capas más estricta
+
+### Fase 2C - Dataclasses + Strategy (~5h)
+- Agregar dataclasses para tipado fuerte
+- Implementar Protocol para contratos
+- Refactorizar exporters con patrón Strategy
+- Type hints exhaustivos
+
+**Razón de deuda técnica:** Priorizar funcionalidad sobre arquitectura avanzada. El código actual es suficientemente mantenible (79% coverage, bien testeado, separación de responsabilidades clara).
 
 ## 🔄 En Progreso
 
-**FASE 2: Arquitectura y Code Quality** - Fase A completada ✅
+**Ninguna fase activa** - Decidiendo próximos pasos
 
-## 📋 Próximos Pasos (en orden)
+## 📋 Próximos Pasos - Fases Disponibles
 
-### Fase 2: Arquitectura y Code Quality (EN PROGRESO)
+Seleccionar próxima fase según prioridades del negocio:
 
-**Fase A - COMPLETADA ✅**
-- [x] Issue #9: Extraer limpiadores de datos ✅
-- [x] Eliminar duplicaciones ✅
-- [x] ~~Issue: Implementar logging estructurado~~ (descartado por usuario)
+### **FASE 3: Corner Cases y Plantillas** 🔧
+**Prioridad:** Alta
+**Objetivo:** Pulir casos especiales y peculiaridades de diferentes plantillas
 
-**Opciones siguientes:**
+**Issues potenciales:**
+- [ ] #10: 🗣️ Debate - Identificar corner cases conocidos
+- [ ] #11: Manejo de facturas con múltiples páginas
+- [ ] #12: Manejo de campos opcionales/condicionales
+- [ ] #13: Plantillas con layouts variables
+- [ ] #14: Validación de datos extraídos mejorada
+- [ ] #15: Mejora en detección de proveedor
 
-**Opción 1: Continuar con Fase B (5 horas adicionales):**
-- [ ] Issue #10: Crear TemplateRepository
-- [ ] Issue #11: Crear InvoiceExtractionService
-- [ ] Issue #12: Refactorizar main.py
+**Corner cases a considerar:**
+- Facturas con tablas dinámicas
+- Campos en diferentes posiciones según versión
+- Múltiples monedas y tasas de cambio
+- Descuentos y recargos variables
 
-**Opción 2: Continuar con Fase C (5 horas adicionales - opcional):**
-- [ ] Issue #13: Agregar dataclasses
-- [ ] Issue #14: Refactorizar exporters con Strategy
+### **FASE 4: Organización de Archivos** 📂
+**Prioridad:** Media
+**Objetivo:** Implementar organización por años y trimestres
 
-**Opción 3: Detener refactorización y continuar con otras fases:**
-- [ ] Fase 3: Configuración y Parametrización
-- [ ] Fase 4: Documentación
-- [ ] Fase 5: Features adicionales
+**Issues potenciales:**
+- [ ] #16: 🗣️ Debate - Estructura de carpetas (facturas/resultados)
+- [ ] #17: Organizar facturas por año/trimestre
+- [ ] #18: Organizar resultados por año/trimestre
+- [ ] #19: Script de migración de archivos existentes
+- [ ] #20: Actualizar paths en código
+
+**Estructura propuesta:**
+```
+facturas/2024/Q1/, facturas/2024/Q2/, ...
+resultados/2024/Q1/, resultados/2024/Q2/, ...
+```
+
+### **FASE 5: Exportación y Campos** 📊
+**Prioridad:** Media-Alta
+**Objetivo:** Definir campos exactos, nombres y orden de exportación
+
+**Issues potenciales:**
+- [ ] #21: 🗣️ Debate - Definir campos obligatorios vs opcionales
+- [ ] #22: 🗣️ Debate - Nombres estándar de columnas
+- [ ] #23: 🗣️ Debate - Orden de columnas en Excel/CSV
+- [ ] #24: Implementar esquema de validación de campos
+- [ ] #25: Mejorar formato de Excel (estilos, anchos)
+- [ ] #26: Agregar metadatos a exportaciones
+
+**Temas a discutir:**
+- ¿Qué campos son obligatorios?
+- ¿Nomenclatura en español o inglés?
+- ¿Cómo manejar campos personalizados por proveedor?
+
+### **FASE 6: Mejoras de Distribución** 🚀
+**Prioridad:** Baja
+**Objetivo:** Mejorar distribución y deployment
+
+**Issues potenciales:**
+- [ ] #27: 🗣️ Debate - Aplicación de escritorio vs Docker vs Web
+- [ ] #28: 🗣️ Debate - Electron vs PyQt vs Tkinter (si escritorio)
+- [ ] #29: 🗣️ Debate - Docker compose para deployment
+- [ ] #30: Evaluar necesidad de base de datos
+- [ ] #31: Implementar según decisión tomada
+
+**Opciones:**
+1. Aplicación de Escritorio (Electron, PyQt, Tkinter)
+2. Dockerización (fácil deployment)
+3. Web App (Flask/FastAPI + React)
+4. Mantener CLI con mejoras
+
+### **FASE 7: UI/UX** 🎨
+**Prioridad:** Baja
+**Objetivo:** Mejorar experiencia de usuario
+
+**Issues potenciales:**
+- [ ] #32: Mejorar UI del editor de plantillas
+- [ ] #33: Agregar preview en tiempo real
+- [ ] #34: Mejorar mensajes de error/éxito
+- [ ] #35: Agregar progress bars
+- [ ] #36: Mejorar experiencia de usuario general
+
+---
 
 ### Issues Pendientes de Fase 1 (Opcionales)
 - [ ] Issue #5: Tests de integración end-to-end (opcional)
@@ -458,6 +543,6 @@ pytest -m unit
 
 ---
 
-**Última acción**: Issue #9 completado - Extraer DataCleaners a módulo utils - commit 73b1aa3
-**Próxima acción recomendada**: Decidir si continuar con Fase B (Repository/Service) o detener refactorización
-**Bloqueadores**: Ninguno - esperando decisión del usuario
+**Última acción**: PR #11 mergeado - Fase 2A completada, Fases 2B y 2C documentadas como deuda técnica
+**Próxima acción recomendada**: Elegir entre Fases 3, 4, 5, 6, o 7 según prioridades
+**Bloqueadores**: Ninguno - esperando decisión sobre próxima fase
