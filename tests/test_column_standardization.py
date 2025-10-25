@@ -62,6 +62,7 @@ class TestColumnStandardization:
 
         plantilla = {
             "proveedor_id": "B12345678",
+            "cif_proveedor": "B12345678",  # Necesario para que el CIF aparezca en datos extraídos
             "nombre_proveedor": "Test Provider",
             "campos": [
                 {
@@ -94,8 +95,8 @@ class TestColumnStandardization:
             mock_page.crop.return_value.extract_text.return_value = "TEST123"
             mock_pdf.return_value.__enter__.return_value.pages = [mock_page]
 
-            # Extraer datos
-            datos = extractor.extraer_datos_factura("test.pdf", "B12345678")
+            # Extraer datos - usar nombre del archivo JSON como key (sin .json)
+            datos = extractor.extraer_datos_factura("test.pdf", "test")
 
             # Verificar que tiene todas las columnas estándar
             columnas_esperadas = [
@@ -119,6 +120,7 @@ class TestColumnStandardization:
 
         plantilla = {
             "proveedor_id": "B12345678",
+            "cif_proveedor": "B12345678",  # Necesario para que el CIF aparezca en datos extraídos
             "nombre_proveedor": "Test Provider",
             "campos": [
                 {
@@ -144,7 +146,8 @@ class TestColumnStandardization:
             mock_page.crop.return_value.extract_text.return_value = "FAC-001"
             mock_pdf.return_value.__enter__.return_value.pages = [mock_page]
 
-            datos = extractor.extraer_datos_factura("test.pdf", "B12345678")
+            # La key ahora es el nombre del archivo JSON (sin .json)
+            datos = extractor.extraer_datos_factura("test.pdf", "test")
 
             # Campos que no están en la plantilla deben estar vacíos
             assert datos['FechaVto'] == ''
@@ -163,6 +166,7 @@ class TestColumnStandardization:
 
         plantilla = {
             "proveedor_id": "B12345678",
+            "cif_proveedor": "B12345678",  # Necesario para que el CIF aparezca en datos extraídos
             "nombre_proveedor": "Test Provider",
             "campos": []
         }
@@ -177,7 +181,8 @@ class TestColumnStandardization:
             mock_page = MagicMock()
             mock_pdf.return_value.__enter__.return_value.pages = [mock_page]
 
-            datos = extractor.extraer_datos_factura("test.pdf", "B12345678")
+            # La key ahora es el nombre del archivo JSON (sin .json)
+            datos = extractor.extraer_datos_factura("test.pdf", "test")
 
             # Verificar que los metadatos tienen prefijo _
             assert '_Archivo' in datos
@@ -185,7 +190,7 @@ class TestColumnStandardization:
             assert '_Fecha_Procesamiento' in datos
 
     def test_filtrar_columnas_estandar(self):
-        """Verifica que _filtrar_columnas_estandar excluye campos con _."""
+        """Verifica que _filtrar_columnas_estandar excluye campos con _ y errores."""
         datos = [
             {
                 'CIF': 'B12345678',
@@ -200,22 +205,25 @@ class TestColumnStandardization:
                 'NumFactura': 'FAC-002',
                 'Base': '200.00',
                 '_Archivo': 'test2.pdf',
-                '_Error': 'Some error'
+                '_Error': 'Some error'  # Este registro será excluido por defecto
             }
         ]
 
         exporter = ExcelExporter(datos)
         datos_filtrados = exporter._filtrar_columnas_estandar(datos)
 
+        # Por defecto excluye registros con _Error, así que solo debe haber 1 registro
+        assert len(datos_filtrados) == 1
+
         # Verificar que no hay campos con _
         for registro in datos_filtrados:
             for campo in registro.keys():
                 assert not campo.startswith('_'), f"Campo {campo} no debería estar en datos filtrados"
 
-        # Verificar que los campos estándar están
+        # Verificar que el primer registro tiene los campos estándar
         assert datos_filtrados[0]['CIF'] == 'B12345678'
         assert datos_filtrados[0]['NumFactura'] == 'FAC-001'
-        assert datos_filtrados[1]['Base'] == '200.00'
+        assert datos_filtrados[0]['Base'] == '100.00'
 
     def test_exportacion_excel_solo_columnas_estandar(self, tmp_path):
         """Verifica que la exportación Excel solo incluye columnas estándar."""
@@ -384,6 +392,7 @@ class TestIntegrationColumnStandardization:
         # Crear plantilla
         plantilla = {
             "proveedor_id": "B12345678",
+            "cif_proveedor": "B12345678",  # Campo necesario para el CIF en datos extraídos
             "nombre_proveedor": "Test Provider S.L.",
             "campos": [
                 {
@@ -433,8 +442,8 @@ class TestIntegrationColumnStandardization:
             mock_page.crop = mock_extract
             mock_pdf.return_value.__enter__.return_value.pages = [mock_page]
 
-            # Extraer datos
-            datos = extractor.extraer_datos_factura("test.pdf", "B12345678")
+            # Extraer datos - el nombre del archivo es test_provider.json, así que key es "test_provider"
+            datos = extractor.extraer_datos_factura("test.pdf", "test_provider")
 
             # Crear exportador
             exporter = ExcelExporter([datos], directorio_salida=str(output_dir))
