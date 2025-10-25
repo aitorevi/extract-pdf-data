@@ -13,7 +13,13 @@ from tkinter import simpledialog, messagebox, filedialog
 from PIL import ImageTk
 
 
-# CAMPOS PREDEFINIDOS - Campos a capturar del PDF
+# CAMPOS DE IDENTIFICACIÓN - Para identificar la plantilla correcta (no se exportan)
+CAMPOS_IDENTIFICACION = [
+    {"nombre": "CIF_Identificacion", "tipo": "texto", "descripcion": "CIF del proveedor para identificación"},
+    {"nombre": "Nombre_Identificacion", "tipo": "texto", "descripcion": "Nombre completo del proveedor para identificación"},
+]
+
+# CAMPOS DE DATOS - Campos a capturar y exportar al Excel
 CAMPOS_PREDEFINIDOS = [
     {"nombre": "FechaFactura", "tipo": "fecha"},
     {"nombre": "FechaVto", "tipo": "fecha"},
@@ -32,7 +38,11 @@ class EditorPlantillas:
         self.punto_inicio = None
         self.plantilla_cargada = plantilla_existente
 
-        # Inicializar campos
+        # Inicializar campos de identificación
+        for campo_def in CAMPOS_IDENTIFICACION:
+            self.campos[campo_def['nombre']] = None
+
+        # Inicializar campos de datos
         for campo_def in CAMPOS_PREDEFINIDOS:
             self.campos[campo_def['nombre']] = None
 
@@ -189,16 +199,56 @@ class EditorPlantillas:
         for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
 
+        # Sección de campos de identificación
+        tk.Label(self.scrollable_frame, text="🔍 CAMPOS DE IDENTIFICACIÓN",
+                font=("Arial", 10, "bold"), bg="lightblue", pady=5).pack(fill=tk.X, padx=5, pady=(5,2))
+
+        for i, campo_def in enumerate(CAMPOS_IDENTIFICACION):
+            nombre = campo_def['nombre']
+            tipo = campo_def['tipo']
+            descripcion = campo_def.get('descripcion', '')
+            tiene_coords = self.campos[nombre] is not None
+
+            frame_campo = tk.Frame(self.scrollable_frame, bg="white", pady=2)
+            frame_campo.pack(fill=tk.X, padx=5, pady=2)
+
+            if tiene_coords:
+                color_fondo = "#4169E1"  # Azul royal
+                color_texto = "white"
+                texto_btn = "✓ EDITAR"
+                color_btn = "orange"
+            else:
+                color_fondo = "#FF8C00"  # Naranja oscuro
+                color_texto = "white"
+                texto_btn = "+ CAPTURAR"
+                color_btn = "blue"
+
+            label = tk.Label(frame_campo, text=f"{i+1}. {nombre}\n({descripcion})",
+                           bg=color_fondo, fg=color_texto, font=("Arial", 8, "bold"),
+                           width=20, anchor="w", padx=5, wraplength=150)
+            label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+            btn = tk.Button(frame_campo, text=texto_btn,
+                          bg=color_btn, fg="white",
+                          font=("Arial", 8, "bold"),
+                          command=lambda n=nombre: self.seleccionar_campo_para_captura(n))
+            btn.pack(side=tk.RIGHT, padx=2)
+
+        # Separador
+        tk.Label(self.scrollable_frame, text="", bg="gray90", height=1).pack(fill=tk.X, pady=2)
+
+        # Sección de campos de datos
+        tk.Label(self.scrollable_frame, text="📊 CAMPOS DE DATOS",
+                font=("Arial", 10, "bold"), bg="lightgreen", pady=5).pack(fill=tk.X, padx=5, pady=(5,2))
+
         for i, campo_def in enumerate(CAMPOS_PREDEFINIDOS):
             nombre = campo_def['nombre']
             tipo = campo_def['tipo']
             tiene_coords = self.campos[nombre] is not None
 
-            # Frame para cada campo
             frame_campo = tk.Frame(self.scrollable_frame, bg="white", pady=2)
             frame_campo.pack(fill=tk.X, padx=5, pady=2)
 
-            # Color según estado
             if tiene_coords:
                 color_fondo = "#228B22"  # Verde oscuro
                 color_texto = "white"
@@ -210,13 +260,11 @@ class EditorPlantillas:
                 texto_btn = "+ CAPTURAR"
                 color_btn = "blue"
 
-            # Label del campo
             label = tk.Label(frame_campo, text=f"{i+1}. {nombre}\n({tipo})",
                            bg=color_fondo, fg=color_texto, font=("Arial", 9, "bold"),
                            width=20, anchor="w", padx=5)
             label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-            # Botón para capturar/editar
             btn = tk.Button(frame_campo, text=texto_btn,
                           bg=color_btn, fg="white",
                           font=("Arial", 8, "bold"),
@@ -307,21 +355,32 @@ class EditorPlantillas:
         self.imagen = self.imagen_original.copy()
         draw = ImageDraw.Draw(self.imagen)
 
-        for i, campo_def in enumerate(CAMPOS_PREDEFINIDOS, 1):
+        # Dibujar campos de identificación en azul
+        for i, campo_def in enumerate(CAMPOS_IDENTIFICACION, 1):
             nombre = campo_def['nombre']
             coords = self.campos[nombre]
 
             if coords:
-                # Convertir coordenadas PDF a imagen
                 ix0 = int(coords[0] * self.escala_x)
                 iy0 = int(coords[1] * self.escala_y)
                 ix1 = int(coords[2] * self.escala_x)
                 iy1 = int(coords[3] * self.escala_y)
 
-                # Dibujar rectángulo
-                draw.rectangle([ix0, iy0, ix1, iy1], outline="green", width=3)
+                draw.rectangle([ix0, iy0, ix1, iy1], outline="blue", width=3)
+                draw.text((ix0 + 5, iy0 + 5), f"ID{i}: {nombre}", fill="blue")
 
-                # Dibujar etiqueta
+        # Dibujar campos de datos en verde
+        for i, campo_def in enumerate(CAMPOS_PREDEFINIDOS, 1):
+            nombre = campo_def['nombre']
+            coords = self.campos[nombre]
+
+            if coords:
+                ix0 = int(coords[0] * self.escala_x)
+                iy0 = int(coords[1] * self.escala_y)
+                ix1 = int(coords[2] * self.escala_x)
+                iy1 = int(coords[3] * self.escala_y)
+
+                draw.rectangle([ix0, iy0, ix1, iy1], outline="green", width=3)
                 draw.text((ix0 + 5, iy0 + 5), f"{i}. {nombre}", fill="green")
 
         self.mostrar_imagen()
@@ -375,16 +434,31 @@ class EditorPlantillas:
         """Guarda la plantilla."""
         print("\n=== GUARDANDO PLANTILLA ===")
 
-        # Verificar que todos los campos estén capturados
-        faltantes = [nombre for nombre, coords in self.campos.items() if coords is None]
+        # Verificar campos de DATOS (los de identificación son opcionales)
+        campos_datos_nombres = [c['nombre'] for c in CAMPOS_PREDEFINIDOS]
+        faltantes_datos = [nombre for nombre, coords in self.campos.items()
+                          if coords is None and nombre in campos_datos_nombres]
 
-        if faltantes:
-            print(f"Faltan campos: {faltantes}")
-            if not messagebox.askyesno("Campos incompletos",
-                                      f"Faltan campos:\n" + "\n".join(f"- {c}" for c in faltantes) +
+        if faltantes_datos:
+            print(f"Faltan campos de datos: {faltantes_datos}")
+            if not messagebox.askyesno("Campos de datos incompletos",
+                                      f"Faltan campos de datos:\n" + "\n".join(f"- {c}" for c in faltantes_datos) +
                                       "\n\n¿Guardar de todos modos?"):
                 print("Guardado cancelado por usuario")
                 return
+
+        # Verificar campos de IDENTIFICACIÓN (son opcionales pero avisar)
+        campos_id_nombres = [c['nombre'] for c in CAMPOS_IDENTIFICACION]
+        faltantes_id = [nombre for nombre, coords in self.campos.items()
+                       if coords is None and nombre in campos_id_nombres]
+
+        if faltantes_id:
+            print(f"AVISO: Campos de identificación no capturados: {faltantes_id}")
+            messagebox.showwarning("Campos de identificación faltantes",
+                                  f"Campos de identificación no capturados:\n" + "\n".join(f"- {c}" for c in faltantes_id) +
+                                  "\n\nLa identificación automática puede no funcionar.\n" +
+                                  "Se recomienda capturar al menos el CIF o el Nombre del proveedor.",
+                                  parent=self.root)
 
         # Pedir información si es nueva
         if self.plantilla_cargada:
@@ -424,16 +498,31 @@ class EditorPlantillas:
         print(f"Nombre proveedor: {nombre_proveedor}")
         print(f"CIF proveedor: {cif_proveedor}")
 
-        # Crear plantilla
+        # Crear lista de todos los campos (identificación + datos)
         campos_lista = []
-        for campo_def in CAMPOS_PREDEFINIDOS:
+
+        # Añadir campos de identificación
+        for campo_def in CAMPOS_IDENTIFICACION:
             nombre = campo_def['nombre']
             coords = self.campos[nombre]
-            if coords:  # Solo incluir campos con coordenadas
+            if coords:
                 campos_lista.append({
                     "nombre": nombre,
                     "coordenadas": coords,
-                    "tipo": campo_def['tipo']
+                    "tipo": campo_def['tipo'],
+                    "es_identificacion": True
+                })
+
+        # Añadir campos de datos
+        for campo_def in CAMPOS_PREDEFINIDOS:
+            nombre = campo_def['nombre']
+            coords = self.campos[nombre]
+            if coords:
+                campos_lista.append({
+                    "nombre": nombre,
+                    "coordenadas": coords,
+                    "tipo": campo_def['tipo'],
+                    "es_identificacion": False
                 })
 
         print(f"Campos a guardar: {len(campos_lista)}")

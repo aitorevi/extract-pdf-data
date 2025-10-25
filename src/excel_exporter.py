@@ -29,22 +29,27 @@ class ExcelExporter:
         # Crear directorio de salida si no existe
         os.makedirs(directorio_salida, exist_ok=True)
 
-    def _filtrar_columnas_estandar(self, datos: List[Dict[str, Any]], excluir_duplicados: bool = True) -> List[Dict[str, Any]]:
+    def _filtrar_columnas_estandar(self, datos: List[Dict[str, Any]], excluir_duplicados: bool = True, excluir_errores: bool = True) -> List[Dict[str, Any]]:
         """
         Filtra solo las columnas estándar (excluye las que empiezan con _).
-        Opcionalmente excluye registros duplicados.
+        Opcionalmente excluye registros duplicados y con errores.
 
         Args:
             datos (List[Dict[str, Any]]): Datos originales con todos los campos
             excluir_duplicados (bool): Si True, excluye facturas marcadas como duplicadas
+            excluir_errores (bool): Si True, excluye facturas con errores de procesamiento
 
         Returns:
             List[Dict[str, Any]]: Datos filtrados solo con columnas estándar
         """
         datos_filtrados = []
         for registro in datos:
-            # Si excluir_duplicados está activado, saltar duplicados
+            # Excluir duplicados si está activado
             if excluir_duplicados and registro.get('_Duplicado', False):
+                continue
+
+            # Excluir registros con errores si está activado
+            if excluir_errores and '_Error' in registro:
                 continue
 
             registro_filtrado = {k: v for k, v in registro.items() if not k.startswith('_')}
@@ -70,8 +75,8 @@ class ExcelExporter:
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
         # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
-        # Y excluir duplicados
-        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True)
+        # Y excluir duplicados y errores
+        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True, excluir_errores=True)
 
         # Crear DataFrame
         df = pd.DataFrame(datos_estandar)
@@ -130,23 +135,15 @@ class ExcelExporter:
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
         # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
-        # Y excluir duplicados
-        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True)
+        # Y excluir duplicados y errores
+        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True, excluir_errores=True)
 
-        # Crear DataFrame
+        # Crear DataFrame - este ya contiene solo registros exitosos sin duplicados
         df = pd.DataFrame(datos_estandar)
 
-        # Separar datos por estado (exitosos vs errores)
-        # Nota: df ya está filtrado (solo columnas estándar), así que usamos los datos originales para detectar errores
-        df_original = pd.DataFrame(self.datos)
-        if '_Error' in df_original.columns:
-            indices_exitosos = df_original[df_original['_Error'].isna()].index
-            indices_errores = df_original[df_original['_Error'].notna()].index
-            df_exitosos = df.iloc[indices_exitosos].copy()
-            df_errores = df.iloc[indices_errores].copy()
-        else:
-            df_exitosos = df.copy()
-            df_errores = pd.DataFrame()
+        # df ya está filtrado, representa solo facturas exitosas
+        df_exitosos = df.copy()
+        df_errores = pd.DataFrame()  # No exportamos errores en el Excel formateado
 
         # Crear workbook
         wb = Workbook()
@@ -402,8 +399,8 @@ class ExcelExporter:
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
         # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
-        # Y excluir duplicados
-        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True)
+        # Y excluir duplicados y errores
+        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True, excluir_errores=True)
 
         # Crear DataFrame y exportar
         df = pd.DataFrame(datos_estandar)
@@ -431,8 +428,8 @@ class ExcelExporter:
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
         # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
-        # Y excluir duplicados
-        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True)
+        # Y excluir duplicados y errores
+        datos_estandar = self._filtrar_columnas_estandar(self.datos, excluir_duplicados=True, excluir_errores=True)
 
         # Agregar metadatos
         exportacion = {
