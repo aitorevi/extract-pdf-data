@@ -132,9 +132,15 @@ class FacturaExtractorApp:
         stats = self.pdf_extractor.obtener_estadisticas()
         self.mostrar_estadisticas(stats)
 
+        # Mostrar errores si existen
+        if self.pdf_extractor.errores:
+            print(f"\n⚠️  ERRORES DE EXTRACCIÓN: {len(self.pdf_extractor.errores)}")
+            print("   (Ver archivo ERRORES.xlsx para detalles)")
+
         # Exportar si está habilitado
         if auto_export:
-            return self.exportar_resultados(resultados, formato_salida)
+            # Pasar también los errores para generar el Excel de debug
+            return self.exportar_resultados(resultados, self.pdf_extractor.errores, formato_salida)
 
         return True
 
@@ -152,12 +158,13 @@ class FacturaExtractorApp:
             for proveedor, data in stats['proveedores'].items():
                 print(f"{proveedor}: {data['exitosos']}/{data['total']} exitosas")
 
-    def exportar_resultados(self, resultados: List[dict], formato: str = "todos") -> bool:
+    def exportar_resultados(self, resultados: List[dict], errores: List[dict] = None, formato: str = "todos") -> bool:
         """
         Exporta los resultados en el formato especificado.
 
         Args:
             resultados (List[dict]): Datos a exportar
+            errores (List[dict]): Errores de extracción
             formato (str): Formato de exportación
 
         Returns:
@@ -166,7 +173,7 @@ class FacturaExtractorApp:
         print(f"\n=== EXPORTANDO RESULTADOS ===")
 
         try:
-            self.exporter = ExcelExporter(resultados)
+            self.exporter = ExcelExporter(resultados, errores or [])
 
             archivos_generados = {}
 
