@@ -11,6 +11,7 @@ Valida que:
 
 import pytest
 import json
+import os
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
 from src.pdf_extractor import PDFExtractor
@@ -70,21 +71,16 @@ class TestErrorHandling:
 
         resultados = extractor.procesar_directorio_facturas()
 
-        assert len(resultados) == 1
-        resultado = resultados[0]
+        # No debe haber resultados exitosos cuando no se identifica proveedor
+        assert len(resultados) == 0
 
-        # Debe tener campo _Error
-        assert "_Error" in resultado
-        assert "Proveedor no identificado" in resultado["_Error"]
+        # Debe haber un error registrado
+        assert len(extractor.errores) == 1
+        error = extractor.errores[0]
 
-        # Debe tener _Proveedor_ID como NO_IDENTIFICADO
-        assert resultado["_Proveedor_ID"] == "NO_IDENTIFICADO"
-
-        # Campos estándar deben existir (vacíos)
-        assert "CIF" in resultado
-        assert "NumFactura" in resultado
-        assert "FechaFactura" in resultado
-        assert resultado["CIF"] == ""
+        assert error['Archivo'] == 'unknown.pdf'
+        assert 'Proveedor no identificado' in error['Error']
+        assert error['Proveedor'] == 'NO_IDENTIFICADO'
 
     def test_registro_error_tiene_campos_estandar(self):
         """Test que registro con error tiene todos los campos estándar."""
@@ -492,73 +488,76 @@ class TestCompleteWorkflow:
         )
         extractor.cargar_plantillas()
 
-        # Mock que simula diferentes escenarios
-        call_count = [0]
+        # Mock que simula diferentes escenarios según el archivo
+        current_file = {'name': ''}
 
-        def mock_crop(bbox):
-            mock_result = MagicMock()
-            call_count[0] += 1
+        def mock_pdf_open_func(filepath):
+            # Guardar el nombre del archivo actual
+            current_file['name'] = os.path.basename(filepath)
 
-            # Primer PDF: exitoso
-            if call_count[0] <= 10:
-                if bbox[1] < 35:  # Nombre_Identificacion
-                    mock_result.extract_text.return_value = "Test Provider"
-                elif bbox[1] < 75:  # NumFactura
-                    mock_result.extract_text.return_value = "FAC-001"
-                elif bbox[1] < 105:  # FechaFactura
-                    mock_result.extract_text.return_value = "15/01/2025"
-                else:  # Base
-                    mock_result.extract_text.return_value = "100.50"
+            def mock_crop(bbox):
+                mock_result = MagicMock()
+                filename = current_file['name']
 
-            # Segundo PDF: error (proveedor no identificado)
-            elif call_count[0] <= 20:
-                if bbox[1] < 35:  # Nombre_Identificacion
-                    mock_result.extract_text.return_value = "Unknown Provider"
+                # factura_error.pdf: proveedor no identificado (Unknown Provider)
+                if 'error' in filename:
+                    if bbox[1] < 35:  # Nombre_Identificacion
+                        mock_result.extract_text.return_value = "Unknown Provider"
+                    else:
+                        mock_result.extract_text.return_value = ""
+
+                # factura_exitosa.pdf y factura_duplicada.pdf: identificado correctamente
                 else:
-                    mock_result.extract_text.return_value = ""
+                    if bbox[1] < 35:  # Nombre_Identificacion
+                        mock_result.extract_text.return_value = "Test Provider"
+                    elif bbox[1] < 75:  # NumFactura
+                        mock_result.extract_text.return_value = "FAC-001"
+                    elif bbox[1] < 105:  # FechaFactura
+                        mock_result.extract_text.return_value = "15/01/2025"
+                    else:  # Base
+                        mock_result.extract_text.return_value = "100.50"
 
-            # Tercer PDF: duplicado (mismos datos que el primero)
-            else:
-                if bbox[1] < 35:  # Nombre_Identificacion
-                    mock_result.extract_text.return_value = "Test Provider"
-                elif bbox[1] < 75:  # NumFactura
-                    mock_result.extract_text.return_value = "FAC-001"
-                elif bbox[1] < 105:  # FechaFactura
-                    mock_result.extract_text.return_value = "15/01/2025"
-                else:  # Base
-                    mock_result.extract_text.return_value = "100.50"
+                return mock_result
 
-            return mock_result
+            mock_page = MagicMock()
+            mock_page.crop = mock_crop
+            mock_pdf = MagicMock()
+            mock_pdf.pages = [mock_page]
+            mock_pdf.__enter__ = Mock(return_value=mock_pdf)
+            mock_pdf.__exit__ = Mock(return_value=None)
+            return mock_pdf
 
-        mock_page = MagicMock()
-        mock_page.crop = mock_crop
-        mock_pdf = MagicMock()
-        mock_pdf.pages = [mock_page]
-        mock_pdf.__enter__ = Mock(return_value=mock_pdf)
-        mock_pdf.__exit__ = Mock(return_value=None)
-        mock_pdf_open.return_value = mock_pdf
+        mock_pdf_open.side_effect = mock_pdf_open_func
 
         # Procesar facturas
         resultados = extractor.procesar_directorio_facturas()
 
-        # Verificar que se procesaron 3 facturas
-        assert len(resultados) == 3
+        # Verificar resultados:
+        # - factura_exitosa.pdf y factura_error.pdf se identifican correctamente
+        # - factura_duplicada.pdf NO se identifica (va a errores)
+        # - La primera factura tiene todos los datos, la segunda es duplicada
+        assert len(resultados) == 2  # 2 exitosas (una es duplicada)
+        assert len(extractor.errores) == 1  # 1 con error de identificación
+
+        # Verificar que una está marcada como duplicada
+        duplicados = [r for r in resultados if r.get('_Duplicado', False)]
+        assert len(duplicados) == 1
 
         # Exportar
         exporter = ExcelExporter(resultados, directorio_salida=str(output_dir))
 
-        # Excel principal (solo exitosas)
+        # Excel principal (excluye duplicados)
         archivo_principal = exporter.exportar_excel_basico("principal.xlsx")
         df_principal = pd.read_excel(archivo_principal)
-        assert len(df_principal) == 1  # Solo la exitosa
+        assert len(df_principal) == 1  # Solo la no duplicada
         assert df_principal.iloc[0]['NumFactura'] == 'FAC-001'
 
-        # Excel debug (todos)
+        # Excel debug (todos los resultados, no incluye errores)
         archivo_debug = exporter.exportar_excel_completo("debug.xlsx")
         df_debug = pd.read_excel(archivo_debug, sheet_name="Datos_Completos")
-        assert len(df_debug) == 3  # Todas
+        assert len(df_debug) == 2  # Ambas facturas procesadas (incluye duplicada)
 
-        # Excel formateado (solo exitosas, sin índices out of bounds)
+        # Excel formateado (solo exitosas no duplicadas)
         archivo_formateado = exporter.exportar_excel_formateado("formateado.xlsx")
         df_formateado = pd.read_excel(archivo_formateado, sheet_name="Facturas_Exitosas")
-        assert len(df_formateado) == 1  # Solo la exitosa
+        assert len(df_formateado) == 1  # Solo la no duplicada

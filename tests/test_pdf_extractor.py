@@ -528,7 +528,7 @@ class TestProcesarDirectorioFacturas:
         assert resultado == []
 
     @patch('src.pdf_extractor.PDFExtractor.identificar_proveedor')
-    @patch('src.pdf_extractor.PDFExtractor.extraer_datos_factura')
+    @patch('src.pdf_extractor.PDFExtractor.extraer_datos_factura_multipagina')
     def test_procesar_directorio_con_pdfs_exitosos(
         self, mock_extraer, mock_identificar, temp_facturas_dir, plantilla_valida
     ):
@@ -540,13 +540,14 @@ class TestProcesarDirectorioFacturas:
         extractor = PDFExtractor(directorio_facturas=str(temp_facturas_dir))
         extractor.plantillas_cargadas = {plantilla_valida['proveedor_id']: plantilla_valida}
 
-        # Mocks
+        # Mocks - ahora retorna lista de facturas (multipágina)
         mock_identificar.return_value = plantilla_valida['proveedor_id']
-        mock_extraer.return_value = {
+        mock_extraer.return_value = [{
             'Archivo': 'factura.pdf',
             'Proveedor_ID': plantilla_valida['proveedor_id'],
-            'Numero_Factura': '12345'
-        }
+            'Numero_Factura': '12345',
+            '_Duplicado': False
+        }]
 
         resultado = extractor.procesar_directorio_facturas()
 
@@ -567,13 +568,17 @@ class TestProcesarDirectorioFacturas:
 
         resultado = extractor.procesar_directorio_facturas()
 
-        assert len(resultado) == 1
-        # Metadatos con prefijo '_'
-        assert resultado[0]['_Proveedor_ID'] == 'NO_IDENTIFICADO'
-        assert '_Error' in resultado[0]
+        # No debe haber resultados exitosos
+        assert len(resultado) == 0
+
+        # Debe haber un error registrado
+        assert len(extractor.errores) == 1
+        error = extractor.errores[0]
+        assert error['Proveedor'] == 'NO_IDENTIFICADO'
+        assert 'Proveedor no identificado' in error['Error']
 
     @patch('src.pdf_extractor.PDFExtractor.identificar_proveedor')
-    @patch('src.pdf_extractor.PDFExtractor.extraer_datos_factura')
+    @patch('src.pdf_extractor.PDFExtractor.extraer_datos_factura_multipagina')
     def test_procesar_directorio_error_en_extraccion(
         self, mock_extraer, mock_identificar, temp_facturas_dir, plantilla_valida
     ):
@@ -582,6 +587,7 @@ class TestProcesarDirectorioFacturas:
         (temp_facturas_dir / "factura_error.pdf").touch()
 
         extractor = PDFExtractor(directorio_facturas=str(temp_facturas_dir))
+        extractor.plantillas_cargadas = {plantilla_valida['proveedor_id']: plantilla_valida}
 
         # Mocks
         mock_identificar.return_value = plantilla_valida['proveedor_id']
@@ -589,10 +595,14 @@ class TestProcesarDirectorioFacturas:
 
         resultado = extractor.procesar_directorio_facturas()
 
-        assert len(resultado) == 1
-        # Metadatos con prefijo '_'
-        assert resultado[0]['_Proveedor_ID'] == plantilla_valida['proveedor_id']
-        assert '_Error' in resultado[0]
+        # No debe haber resultados exitosos cuando hay error
+        assert len(resultado) == 0
+
+        # Debe haber un error registrado
+        assert len(extractor.errores) == 1
+        error = extractor.errores[0]
+        assert error['Proveedor'] == plantilla_valida['proveedor_id']
+        assert 'Error al extraer' in error['Error']
 
 
 @pytest.mark.unit
