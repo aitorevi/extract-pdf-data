@@ -37,7 +37,7 @@ def test_extraccion_1_factura_3_paginas():
     assert factura['Base'] == '1250.75', f"Base debe ser 1250.75, obtuvo {factura['Base']}"
 
     print("✅ PASS: Extrae correctamente de la última página")
-    return True
+
 
 
 def test_extraccion_3_facturas_1_pagina():
@@ -68,7 +68,7 @@ def test_extraccion_3_facturas_1_pagina():
     assert 'FAC-005' in nums_factura, "Debe incluir FAC-005"
 
     print("✅ PASS: Extrae correctamente 3 facturas independientes")
-    return True
+
 
 
 def test_extraccion_base_acumulada():
@@ -100,7 +100,7 @@ def test_extraccion_base_acumulada():
     assert factura['Base'] == '1125.50', f"Base debe ser 1125.50 (total), obtuvo {factura['Base']}"
 
     print("✅ PASS: Extrae el total correcto de la última página")
-    return True
+
 
 
 def test_extraccion_1_factura_1_pagina():
@@ -130,7 +130,7 @@ def test_extraccion_1_factura_1_pagina():
     assert factura['_Total_Paginas'] == 1, f"Debe tener 1 página"
 
     print("✅ PASS: Extrae correctamente factura simple")
-    return True
+
 
 
 def test_extraccion_pdf_mixto_complejo():
@@ -182,7 +182,7 @@ def test_extraccion_pdf_mixto_complejo():
     assert facturas_dict['FAC-MIX-004']['Base'] == '900.00', "FAC-MIX-004 Base debe ser 900.00 (total)"
 
     print("✅ PASS: Extrae correctamente PDF mixto (1 pág + multipágina)")
-    return True
+
 
 
 def run_all_tests():

@@ -417,14 +417,13 @@ class TestProviderIdentification:
 
         resultados = extractor.procesar_directorio_facturas()
 
-        assert len(resultados) == 1
-        resultado = resultados[0]
+        # No debe haber resultados exitosos cuando no se identifica proveedor
+        assert len(resultados) == 0
 
-        # Debe tener error
-        assert "_Error" in resultado
-        assert "Proveedor no identificado" in resultado["_Error"]
-        assert resultado.get("_Proveedor_ID") == "NO_IDENTIFICADO"
+        # Debe haber un error registrado
+        assert len(extractor.errores) == 1
+        error = extractor.errores[0]
 
-        # Campos estándar deben estar vacíos
-        assert resultado.get("CIF") == ""
-        assert resultado.get("NumFactura") == ""
+        assert error['Archivo'] == 'factura_desconocida.pdf'
+        assert 'Proveedor no identificado' in error['Error']
+        assert error['Proveedor'] == 'NO_IDENTIFICADO'

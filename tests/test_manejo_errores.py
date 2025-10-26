@@ -49,7 +49,6 @@ def test_pagina_sin_numfactura():
     assert error_encontrado, "Debe registrar error de página 2 sin NumFactura"
 
     print("✅ PASS: Página sin NumFactura registrada como error")
-    return True
 
 
 def test_proveedor_no_identificado():
@@ -88,7 +87,7 @@ def test_proveedor_no_identificado():
         "Debe tener error de proveedor no identificado"
 
     print("✅ PASS: Proveedor no identificado registrado como error")
-    return True
+
 
 
 def test_validacion_numfactura_texto_basura():
@@ -109,7 +108,7 @@ def test_validacion_numfactura_texto_basura():
     assert extractor._es_numfactura_valido("INV123"), "Debe aceptar 'INV123'"
 
     print("✅ PASS: Validación de NumFactura funciona correctamente")
-    return True
+
 
 
 def test_exportacion_errores():
@@ -145,10 +144,9 @@ def test_exportacion_errores():
             os.remove(ruta_errores)
 
         print("✅ PASS: Exportación de errores funciona correctamente")
-        return True
     except Exception as e:
         print(f"❌ FAIL: {e}")
-        return False
+        raise
 
 
 def run_all_tests():
