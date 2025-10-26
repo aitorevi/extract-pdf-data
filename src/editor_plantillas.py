@@ -6,6 +6,7 @@ Campos predefinidos: solo cambias coordenadas.
 import pdfplumber
 import json
 import os
+import platform
 from pdf2image import convert_from_path
 from PIL import Image, ImageDraw
 import tkinter as tk
@@ -160,9 +161,21 @@ class EditorPlantillas:
     def cargar_imagen_pdf(self):
         """Convierte el PDF a imagen."""
         print("Convirtiendo PDF a imagen...")
-        # Ruta de Poppler instalado localmente (en la raíz del proyecto)
-        project_root = os.path.dirname(os.path.dirname(__file__))
-        poppler_path = os.path.join(project_root, "poppler", "Library", "bin")
+
+        # Configurar ruta de Poppler según el sistema operativo
+        sistema = platform.system()
+
+        if sistema == "Darwin":  # macOS
+            # En macOS, usar poppler instalado con Homebrew
+            poppler_path = "/opt/homebrew/bin"
+        elif sistema == "Windows":
+            # En Windows, usar poppler local del proyecto
+            project_root = os.path.dirname(os.path.dirname(__file__))
+            poppler_path = os.path.join(project_root, "poppler", "Library", "bin")
+        else:
+            # Linux u otros: intentar usar poppler del sistema (en PATH)
+            poppler_path = None
+
         imagenes = convert_from_path(self.pdf_path, dpi=150, poppler_path=poppler_path)
         self.imagen_original = imagenes[0]
         self.imagen = self.imagen_original.copy()

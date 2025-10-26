@@ -14,15 +14,17 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 
 
 class ExcelExporter:
-    def __init__(self, datos: List[Dict[str, Any]], directorio_salida: str = "resultados"):
+    def __init__(self, datos: List[Dict[str, Any]], errores: List[Dict[str, Any]] = None, directorio_salida: str = "resultados"):
         """
         Inicializa el exportador de Excel.
 
         Args:
             datos (List[Dict[str, Any]]): Lista de datos extraídos de facturas
+            errores (List[Dict[str, Any]]): Lista de errores de extracción
             directorio_salida (str): Directorio donde guardar los archivos generados
         """
         self.datos = datos
+        self.errores = errores or []
         self.directorio_salida = directorio_salida
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -114,6 +116,93 @@ class ExcelExporter:
             df.to_excel(writer, sheet_name='Datos_Completos', index=False)
 
         print(f"OK Excel completo (debug) exportado: {ruta_completa}")
+        return ruta_completa
+
+    def exportar_excel_errores(self, nombre_archivo: Optional[str] = None) -> Optional[str]:
+        """
+        Exporta un Excel con los errores de extracción (para debugging).
+
+        Args:
+            nombre_archivo (str, optional): Nombre del archivo. Si None, se genera automáticamente.
+
+        Returns:
+            Optional[str]: Ruta del archivo generado o None si no hay errores
+        """
+        if not self.errores:
+            print("No hay errores para exportar")
+            return None
+
+        if nombre_archivo is None:
+            nombre_archivo = f"errores_extraccion_{self.timestamp}.xlsx"
+
+        ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
+
+        # Crear DataFrame con los errores
+        df_errores = pd.DataFrame(self.errores)
+
+        # Crear workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Errores"
+
+        # Título
+        ws['A1'] = "LOG DE ERRORES DE EXTRACCIÓN"
+        ws['A1'].font = Font(size=16, bold=True, color="FF0000")
+        ws['A1'].alignment = Alignment(horizontal='center')
+        ws.merge_cells('A1:E1')
+
+        # Información general
+        ws['A3'] = "Total de errores:"
+        ws['A3'].font = Font(bold=True)
+        ws['B3'] = len(self.errores)
+
+        ws['A4'] = "Fecha de generación:"
+        ws['A4'].font = Font(bold=True)
+        ws['B4'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+        # Agregar datos del DataFrame
+        row_start = 6
+        for row_idx, row in enumerate(dataframe_to_rows(df_errores, index=False, header=True), start=row_start):
+            ws.append(row)
+
+        # Formatear encabezados
+        for cell in ws[row_start]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="C00000", end_color="C00000", fill_type="solid")
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+
+        # Formatear datos
+        for row in ws.iter_rows(min_row=row_start+1):
+            for cell in row:
+                cell.border = Border(
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
+                )
+                # Resaltar errores en rojo claro
+                cell.fill = PatternFill(start_color="FFE6E6", end_color="FFE6E6", fill_type="solid")
+
+        # Autoajustar columnas
+        from openpyxl.utils import get_column_letter
+        for col_idx in range(1, ws.max_column + 1):
+            max_length = 10  # Ancho mínimo
+            for row_idx in range(1, ws.max_row + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                if hasattr(cell, 'value') and cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            column_letter = get_column_letter(col_idx)
+            ws.column_dimensions[column_letter].width = min(max_length + 2, 50)
+
+        # Guardar workbook
+        wb.save(ruta_completa)
+        print(f"OK Excel de errores (debug) exportado: {ruta_completa}")
         return ruta_completa
 
     def exportar_excel_formateado(self, nombre_archivo: Optional[str] = None) -> str:
@@ -480,6 +569,14 @@ class ExcelExporter:
             resultados['json'] = self.exportar_json(f"{prefijo}.json")
         except Exception as e:
             print(f"Error exportando JSON: {e}")
+
+        # Exportar errores si existen
+        try:
+            ruta_errores = self.exportar_excel_errores(f"{prefijo}_ERRORES.xlsx")
+            if ruta_errores:
+                resultados['excel_errores'] = ruta_errores
+        except Exception as e:
+            print(f"Error exportando Excel de errores: {e}")
 
         return resultados
 
