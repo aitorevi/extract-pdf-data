@@ -267,6 +267,7 @@ class EditorPlantillas:
         for i, campo_def in enumerate(CAMPOS_PREDEFINIDOS):
             nombre = campo_def['nombre']
             tipo = campo_def['tipo']
+            es_opcional = campo_def.get('opcional', False)
             tiene_coords = self.campos[nombre] is not None
 
             frame_campo = tk.Frame(self.scrollable_frame, bg="white", pady=2)
@@ -278,14 +279,58 @@ class EditorPlantillas:
                 texto_btn = "✓ EDITAR"
                 color_btn = "orange"
             else:
-                color_fondo = "#DC143C"  # Rojo crimson
-                color_texto = "white"
+                if es_opcional:
+                    color_fondo = "#4682B4"  # Azul acero (opcional)
+                    color_texto = "white"
+                else:
+                    color_fondo = "#DC143C"  # Rojo crimson (obligatorio)
+                    color_texto = "white"
                 texto_btn = "+ CAPTURAR"
                 color_btn = "blue"
 
-            label = tk.Label(frame_campo, text=f"{i+1}. {nombre}\n({tipo})",
+            # Mostrar si es opcional
+            texto_opcional = " (opcional)" if es_opcional else ""
+            label = tk.Label(frame_campo, text=f"{i+1}. {nombre}{texto_opcional}\n({tipo})",
                            bg=color_fondo, fg=color_texto, font=("Arial", 9, "bold"),
                            width=20, anchor="w", padx=5)
+            label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+            btn = tk.Button(frame_campo, text=texto_btn,
+                          bg=color_btn, fg="white",
+                          font=("Arial", 8, "bold"),
+                          command=lambda n=nombre: self.seleccionar_campo_para_captura(n))
+            btn.pack(side=tk.RIGHT, padx=2)
+
+        # Separador
+        tk.Label(self.scrollable_frame, text="", bg="gray90", height=1).pack(fill=tk.X, pady=2)
+
+        # Sección de campos auxiliares
+        tk.Label(self.scrollable_frame, text="🔧 CAMPOS AUXILIARES (para cálculos)",
+                font=("Arial", 10, "bold"), bg="lightyellow", pady=5).pack(fill=tk.X, padx=5, pady=(5,2))
+
+        for i, campo_def in enumerate(CAMPOS_AUXILIARES):
+            nombre = campo_def['nombre']
+            tipo = campo_def['tipo']
+            descripcion = campo_def.get('descripcion', '')
+            tiene_coords = self.campos[nombre] is not None
+
+            frame_campo = tk.Frame(self.scrollable_frame, bg="white", pady=2)
+            frame_campo.pack(fill=tk.X, padx=5, pady=2)
+
+            if tiene_coords:
+                color_fondo = "#FFA500"  # Naranja
+                color_texto = "white"
+                texto_btn = "✓ EDITAR"
+                color_btn = "orange"
+            else:
+                color_fondo = "#FFD700"  # Dorado
+                color_texto = "black"
+                texto_btn = "+ CAPTURAR"
+                color_btn = "blue"
+
+            label = tk.Label(frame_campo, text=f"{i+1}. {nombre} (opcional)\n{descripcion}",
+                           bg=color_fondo, fg=color_texto, font=("Arial", 8, "bold"),
+                           width=20, anchor="w", padx=5, wraplength=150)
             label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
             btn = tk.Button(frame_campo, text=texto_btn,
@@ -405,6 +450,20 @@ class EditorPlantillas:
 
                 draw.rectangle([ix0, iy0, ix1, iy1], outline="green", width=3)
                 draw.text((ix0 + 5, iy0 + 5), f"{i}. {nombre}", fill="green")
+
+        # Dibujar campos auxiliares en naranja
+        for i, campo_def in enumerate(CAMPOS_AUXILIARES, 1):
+            nombre = campo_def['nombre']
+            coords = self.campos[nombre]
+
+            if coords:
+                ix0 = int(coords[0] * self.escala_x)
+                iy0 = int(coords[1] * self.escala_y)
+                ix1 = int(coords[2] * self.escala_x)
+                iy1 = int(coords[3] * self.escala_y)
+
+                draw.rectangle([ix0, iy0, ix1, iy1], outline="orange", width=3)
+                draw.text((ix0 + 5, iy0 + 5), f"AUX{i}: {nombre}", fill="orange")
 
         self.mostrar_imagen()
 
@@ -546,6 +605,19 @@ class EditorPlantillas:
                     "coordenadas": coords,
                     "tipo": campo_def['tipo'],
                     "es_identificacion": False
+                })
+
+        # Añadir campos auxiliares
+        for campo_def in CAMPOS_AUXILIARES:
+            nombre = campo_def['nombre']
+            coords = self.campos[nombre]
+            if coords:
+                campos_lista.append({
+                    "nombre": nombre,
+                    "coordenadas": coords,
+                    "tipo": campo_def['tipo'],
+                    "es_identificacion": False,
+                    "es_auxiliar": True
                 })
 
         print(f"Campos a guardar: {len(campos_lista)}")
