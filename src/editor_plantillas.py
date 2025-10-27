@@ -22,10 +22,16 @@ CAMPOS_IDENTIFICACION = [
 
 # CAMPOS DE DATOS - Campos a capturar y exportar al Excel
 CAMPOS_PREDEFINIDOS = [
-    {"nombre": "FechaFactura", "tipo": "fecha"},
-    {"nombre": "FechaVto", "tipo": "fecha"},
-    {"nombre": "NumFactura", "tipo": "texto"},
-    {"nombre": "Base", "tipo": "numerico"},
+    {"nombre": "FechaFactura", "tipo": "fecha", "opcional": False},
+    {"nombre": "FechaVto", "tipo": "fecha", "opcional": True},  # Campo opcional
+    {"nombre": "NumFactura", "tipo": "texto", "opcional": False},
+    {"nombre": "Base", "tipo": "numerico", "opcional": False},
+]
+
+# CAMPOS AUXILIARES - Se capturan para cálculos, NO se exportan
+CAMPOS_AUXILIARES = [
+    {"nombre": "Portes", "tipo": "numerico", "opcional": True,
+     "descripcion": "Portes (se suma automáticamente a Base)"},
 ]
 
 
@@ -45,6 +51,10 @@ class EditorPlantillas:
 
         # Inicializar campos de datos
         for campo_def in CAMPOS_PREDEFINIDOS:
+            self.campos[campo_def['nombre']] = None
+
+        # Inicializar campos auxiliares
+        for campo_def in CAMPOS_AUXILIARES:
             self.campos[campo_def['nombre']] = None
 
         # Si hay plantilla cargada, cargar coordenadas existentes
@@ -447,15 +457,15 @@ class EditorPlantillas:
         """Guarda la plantilla."""
         print("\n=== GUARDANDO PLANTILLA ===")
 
-        # Verificar campos de DATOS (los de identificación son opcionales)
-        campos_datos_nombres = [c['nombre'] for c in CAMPOS_PREDEFINIDOS]
-        faltantes_datos = [nombre for nombre, coords in self.campos.items()
-                          if coords is None and nombre in campos_datos_nombres]
+        # Verificar campos OBLIGATORIOS de DATOS (opcional=False)
+        campos_obligatorios = [c['nombre'] for c in CAMPOS_PREDEFINIDOS if not c.get('opcional', False)]
+        faltantes_obligatorios = [nombre for nombre in campos_obligatorios
+                                 if self.campos.get(nombre) is None]
 
-        if faltantes_datos:
-            print(f"Faltan campos de datos: {faltantes_datos}")
-            if not messagebox.askyesno("Campos de datos incompletos",
-                                      f"Faltan campos de datos:\n" + "\n".join(f"- {c}" for c in faltantes_datos) +
+        if faltantes_obligatorios:
+            print(f"Faltan campos obligatorios: {faltantes_obligatorios}")
+            if not messagebox.askyesno("Campos obligatorios incompletos",
+                                      f"Faltan campos obligatorios:\n" + "\n".join(f"- {c}" for c in faltantes_obligatorios) +
                                       "\n\n¿Guardar de todos modos?"):
                 print("Guardado cancelado por usuario")
                 return
