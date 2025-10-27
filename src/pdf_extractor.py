@@ -318,6 +318,7 @@ class PDFExtractor:
             'FechaPago': '',
             'Base': '',
             'ComPaypal': '',
+            'Portes': '',  # Campo auxiliar (se suma a Base y se elimina antes de exportar)
         }
 
         # Metadatos adicionales (para uso interno, con prefijo _)
@@ -759,6 +760,7 @@ class PDFExtractor:
                         'FechaPago': '',
                         'Base': '',
                         'ComPaypal': '',
+                        'Portes': '',  # Campo auxiliar (se suma a Base y se elimina antes de exportar)
                     }
 
                     # Metadatos adicionales
