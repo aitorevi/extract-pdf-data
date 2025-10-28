@@ -212,9 +212,9 @@ class TestEditorPlantillasGuardar:
         with patch('src.editor_plantillas.messagebox.askyesno', return_value=False):
             editor.guardar_plantilla()
 
-        # Verificar que se imprimió mensaje de campos faltantes y guardado cancelado
+        # Verificar que se imprimió mensaje de campos obligatorios faltantes y guardado cancelado
         captured = capsys.readouterr()
-        assert "Faltan campos de datos" in captured.out
+        assert "Faltan campos obligatorios" in captured.out
         assert "Guardado cancelado" in captured.out
 
     @patch('src.editor_plantillas.pdfplumber.open')

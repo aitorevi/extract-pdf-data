@@ -252,6 +252,44 @@ class PDFExtractor:
 
         return similitud
 
+    def _procesar_campos_auxiliares(self, datos_extraidos: dict) -> dict:
+        """
+        Procesa campos auxiliares y aplica cálculos automáticos.
+
+        Los campos auxiliares se usan para cálculos pero NO se exportan al Excel.
+        Por ejemplo, "Portes" se suma a "Base" y luego se elimina.
+
+        Args:
+            datos_extraidos (dict): Datos extraídos del PDF (pueden incluir campos auxiliares)
+
+        Returns:
+            dict: Datos procesados (sin campos auxiliares)
+        """
+        # Si existe "Portes", sumarlo a "Base"
+        if "Portes" in datos_extraidos and datos_extraidos["Portes"]:
+            try:
+                # Convertir a float
+                base = float(datos_extraidos.get("Base", 0))
+                portes_str = str(datos_extraidos["Portes"]).strip()
+
+                # Si Portes está vacío, no hacer nada
+                if portes_str and portes_str != "":
+                    portes = float(portes_str)
+
+                    # Sumar solo si Portes > 0
+                    if portes > 0:
+                        nueva_base = base + portes
+                        datos_extraidos["Base"] = str(nueva_base)
+                        print(f"  ℹ️  Base ajustada: {base} + {portes} (Portes) = {nueva_base}")
+            except (ValueError, TypeError) as e:
+                print(f"  ⚠️  No se pudo sumar Portes a Base: {e}")
+
+        # Eliminar campos auxiliares antes de exportar
+        if "Portes" in datos_extraidos:
+            del datos_extraidos["Portes"]
+
+        return datos_extraidos
+
     def extraer_datos_factura(self, ruta_pdf: str, proveedor_id: str) -> Dict[str, Any]:
         """
         Extrae datos de una factura usando su plantilla correspondiente.
@@ -280,6 +318,7 @@ class PDFExtractor:
             'FechaPago': '',
             'Base': '',
             'ComPaypal': '',
+            'Portes': '',  # Campo auxiliar (se suma a Base y se elimina antes de exportar)
         }
 
         # Metadatos adicionales (para uso interno, con prefijo _)
@@ -424,6 +463,9 @@ class PDFExtractor:
 
                     # Procesar cada factura extraída del PDF
                     for datos in lista_datos:
+                        # Procesar campos auxiliares (ej: sumar Portes a Base)
+                        datos = self._procesar_campos_auxiliares(datos)
+
                         # Verificar duplicados usando CIF + NumFactura + FechaFactura
                         clave_duplicado = (
                             datos.get('CIF', ''),
@@ -718,6 +760,7 @@ class PDFExtractor:
                         'FechaPago': '',
                         'Base': '',
                         'ComPaypal': '',
+                        'Portes': '',  # Campo auxiliar (se suma a Base y se elimina antes de exportar)
                     }
 
                     # Metadatos adicionales

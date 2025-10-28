@@ -22,10 +22,16 @@ CAMPOS_IDENTIFICACION = [
 
 # CAMPOS DE DATOS - Campos a capturar y exportar al Excel
 CAMPOS_PREDEFINIDOS = [
-    {"nombre": "FechaFactura", "tipo": "fecha"},
-    {"nombre": "FechaVto", "tipo": "fecha"},
-    {"nombre": "NumFactura", "tipo": "texto"},
-    {"nombre": "Base", "tipo": "numerico"},
+    {"nombre": "FechaFactura", "tipo": "fecha", "opcional": False},
+    {"nombre": "FechaVto", "tipo": "fecha", "opcional": True},  # Campo opcional
+    {"nombre": "NumFactura", "tipo": "texto", "opcional": False},
+    {"nombre": "Base", "tipo": "numerico", "opcional": False},
+]
+
+# CAMPOS AUXILIARES - Se capturan para cálculos, NO se exportan
+CAMPOS_AUXILIARES = [
+    {"nombre": "Portes", "tipo": "numerico", "opcional": True,
+     "descripcion": "Portes (se suma automáticamente a Base)"},
 ]
 
 
@@ -47,6 +53,10 @@ class EditorPlantillas:
         for campo_def in CAMPOS_PREDEFINIDOS:
             self.campos[campo_def['nombre']] = None
 
+        # Inicializar campos auxiliares
+        for campo_def in CAMPOS_AUXILIARES:
+            self.campos[campo_def['nombre']] = None
+
         # Si hay plantilla cargada, cargar coordenadas existentes
         if plantilla_existente and 'campos' in plantilla_existente:
             for campo in plantilla_existente['campos']:
@@ -65,11 +75,11 @@ class EditorPlantillas:
         # Configurar geometría
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
-        window_width = min(1400, screen_width - 100)
-        window_height = min(900, screen_height - 100)
-        x = (screen_width - window_width) // 2
-        y = (screen_height - window_height) // 2
-        self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        self.window_width = min(1400, screen_width - 100)
+        self.window_height = min(900, screen_height - 100)
+        x = (screen_width - self.window_width) // 2
+        y = (screen_height - self.window_height) // 2
+        self.root.geometry(f"{self.window_width}x{self.window_height}+{x}+{y}")
 
         # Panel derecho
         frame_botones = tk.Frame(self.root, bg="gray90", padx=10)
@@ -180,21 +190,35 @@ class EditorPlantillas:
         self.imagen_original = imagenes[0]
         self.imagen = self.imagen_original.copy()
 
-        # Calcular escala
+        # Calcular escala inicial
         self.escala_x = self.imagen.width / self.pdf_width
         self.escala_y = self.imagen.height / self.pdf_height
 
-        # Redimensionar si es muy grande
-        max_width = 1200
-        max_height = 900
-        if self.imagen.width > max_width or self.imagen.height > max_height:
-            ratio = min(max_width / self.imagen.width, max_height / self.imagen.height)
+        # Calcular espacio disponible (dejando margen para UI)
+        # Ancho: toda la ventana menos panel derecho (~350px) y márgenes (~50px)
+        espacio_ancho = self.window_width - 400
+        # Alto: toda la ventana menos márgenes (~50px)
+        espacio_alto = self.window_height - 50
+
+        # Redimensionar para que quepa en el espacio disponible (sin scroll)
+        if self.imagen.width > espacio_ancho or self.imagen.height > espacio_alto:
+            # Calcular ratio manteniendo proporción
+            ratio = min(espacio_ancho / self.imagen.width, espacio_alto / self.imagen.height)
             new_width = int(self.imagen.width * ratio)
             new_height = int(self.imagen.height * ratio)
+
+            print(f"Redimensionando imagen: {self.imagen.width}x{self.imagen.height} → {new_width}x{new_height}")
+            print(f"  Espacio disponible: {espacio_ancho}x{espacio_alto}")
+            print(f"  Ratio aplicado: {ratio:.3f}")
+
             self.imagen = self.imagen.resize((new_width, new_height), Image.Resampling.LANCZOS)
             self.imagen_original = self.imagen_original.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            # Actualizar escalas (crítico para mantener coordenadas precisas)
             self.escala_x *= ratio
             self.escala_y *= ratio
+
+            print(f"  Nuevas escalas: X={self.escala_x:.3f}, Y={self.escala_y:.3f}")
 
         self.redibujar_campos()
 
@@ -257,6 +281,7 @@ class EditorPlantillas:
         for i, campo_def in enumerate(CAMPOS_PREDEFINIDOS):
             nombre = campo_def['nombre']
             tipo = campo_def['tipo']
+            es_opcional = campo_def.get('opcional', False)
             tiene_coords = self.campos[nombre] is not None
 
             frame_campo = tk.Frame(self.scrollable_frame, bg="white", pady=2)
@@ -268,14 +293,58 @@ class EditorPlantillas:
                 texto_btn = "✓ EDITAR"
                 color_btn = "orange"
             else:
-                color_fondo = "#DC143C"  # Rojo crimson
-                color_texto = "white"
+                if es_opcional:
+                    color_fondo = "#4682B4"  # Azul acero (opcional)
+                    color_texto = "white"
+                else:
+                    color_fondo = "#DC143C"  # Rojo crimson (obligatorio)
+                    color_texto = "white"
                 texto_btn = "+ CAPTURAR"
                 color_btn = "blue"
 
-            label = tk.Label(frame_campo, text=f"{i+1}. {nombre}\n({tipo})",
+            # Mostrar si es opcional
+            texto_opcional = " (opcional)" if es_opcional else ""
+            label = tk.Label(frame_campo, text=f"{i+1}. {nombre}{texto_opcional}\n({tipo})",
                            bg=color_fondo, fg=color_texto, font=("Arial", 9, "bold"),
                            width=20, anchor="w", padx=5)
+            label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+            btn = tk.Button(frame_campo, text=texto_btn,
+                          bg=color_btn, fg="white",
+                          font=("Arial", 8, "bold"),
+                          command=lambda n=nombre: self.seleccionar_campo_para_captura(n))
+            btn.pack(side=tk.RIGHT, padx=2)
+
+        # Separador
+        tk.Label(self.scrollable_frame, text="", bg="gray90", height=1).pack(fill=tk.X, pady=2)
+
+        # Sección de campos auxiliares
+        tk.Label(self.scrollable_frame, text="🔧 CAMPOS AUXILIARES (para cálculos)",
+                font=("Arial", 10, "bold"), bg="lightyellow", pady=5).pack(fill=tk.X, padx=5, pady=(5,2))
+
+        for i, campo_def in enumerate(CAMPOS_AUXILIARES):
+            nombre = campo_def['nombre']
+            tipo = campo_def['tipo']
+            descripcion = campo_def.get('descripcion', '')
+            tiene_coords = self.campos[nombre] is not None
+
+            frame_campo = tk.Frame(self.scrollable_frame, bg="white", pady=2)
+            frame_campo.pack(fill=tk.X, padx=5, pady=2)
+
+            if tiene_coords:
+                color_fondo = "#FFA500"  # Naranja
+                color_texto = "white"
+                texto_btn = "✓ EDITAR"
+                color_btn = "orange"
+            else:
+                color_fondo = "#FFD700"  # Dorado
+                color_texto = "black"
+                texto_btn = "+ CAPTURAR"
+                color_btn = "blue"
+
+            label = tk.Label(frame_campo, text=f"{i+1}. {nombre} (opcional)\n{descripcion}",
+                           bg=color_fondo, fg=color_texto, font=("Arial", 8, "bold"),
+                           width=20, anchor="w", padx=5, wraplength=150)
             label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
             btn = tk.Button(frame_campo, text=texto_btn,
@@ -396,6 +465,20 @@ class EditorPlantillas:
                 draw.rectangle([ix0, iy0, ix1, iy1], outline="green", width=3)
                 draw.text((ix0 + 5, iy0 + 5), f"{i}. {nombre}", fill="green")
 
+        # Dibujar campos auxiliares en naranja
+        for i, campo_def in enumerate(CAMPOS_AUXILIARES, 1):
+            nombre = campo_def['nombre']
+            coords = self.campos[nombre]
+
+            if coords:
+                ix0 = int(coords[0] * self.escala_x)
+                iy0 = int(coords[1] * self.escala_y)
+                ix1 = int(coords[2] * self.escala_x)
+                iy1 = int(coords[3] * self.escala_y)
+
+                draw.rectangle([ix0, iy0, ix1, iy1], outline="orange", width=3)
+                draw.text((ix0 + 5, iy0 + 5), f"AUX{i}: {nombre}", fill="orange")
+
         self.mostrar_imagen()
 
     def cargar_plantilla(self):
@@ -447,15 +530,15 @@ class EditorPlantillas:
         """Guarda la plantilla."""
         print("\n=== GUARDANDO PLANTILLA ===")
 
-        # Verificar campos de DATOS (los de identificación son opcionales)
-        campos_datos_nombres = [c['nombre'] for c in CAMPOS_PREDEFINIDOS]
-        faltantes_datos = [nombre for nombre, coords in self.campos.items()
-                          if coords is None and nombre in campos_datos_nombres]
+        # Verificar campos OBLIGATORIOS de DATOS (opcional=False)
+        campos_obligatorios = [c['nombre'] for c in CAMPOS_PREDEFINIDOS if not c.get('opcional', False)]
+        faltantes_obligatorios = [nombre for nombre in campos_obligatorios
+                                 if self.campos.get(nombre) is None]
 
-        if faltantes_datos:
-            print(f"Faltan campos de datos: {faltantes_datos}")
-            if not messagebox.askyesno("Campos de datos incompletos",
-                                      f"Faltan campos de datos:\n" + "\n".join(f"- {c}" for c in faltantes_datos) +
+        if faltantes_obligatorios:
+            print(f"Faltan campos obligatorios: {faltantes_obligatorios}")
+            if not messagebox.askyesno("Campos obligatorios incompletos",
+                                      f"Faltan campos obligatorios:\n" + "\n".join(f"- {c}" for c in faltantes_obligatorios) +
                                       "\n\n¿Guardar de todos modos?"):
                 print("Guardado cancelado por usuario")
                 return
@@ -536,6 +619,19 @@ class EditorPlantillas:
                     "coordenadas": coords,
                     "tipo": campo_def['tipo'],
                     "es_identificacion": False
+                })
+
+        # Añadir campos auxiliares
+        for campo_def in CAMPOS_AUXILIARES:
+            nombre = campo_def['nombre']
+            coords = self.campos[nombre]
+            if coords:
+                campos_lista.append({
+                    "nombre": nombre,
+                    "coordenadas": coords,
+                    "tipo": campo_def['tipo'],
+                    "es_identificacion": False,
+                    "es_auxiliar": True
                 })
 
         print(f"Campos a guardar: {len(campos_lista)}")
