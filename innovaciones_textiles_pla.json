@@ -1,0 +1,85 @@
+{
+    "nombre_proveedor": "Innovaciones Textiles Pla S.L.",
+    "cif_proveedor": "B96995196",
+    "pdf_referencia": "/Users/aitorevi/Dev/extract-pdf-data/facturas/Factura_202501006358.pdf",
+    "campos": [
+        {
+            "nombre": "CIF_Identificacion",
+            "coordenadas": [
+                249.8280241935484,
+                93.55555555555556,
+                314.39032258064515,
+                111.33111111111111
+            ],
+            "tipo": "texto",
+            "es_identificacion": true
+        },
+        {
+            "nombre": "Nombre_Identificacion",
+            "coordenadas": [
+                218.0147177419355,
+                18.711111111111112,
+                384.56673387096777,
+                31.808888888888887
+            ],
+            "tipo": "texto",
+            "es_identificacion": true
+        },
+        {
+            "nombre": "FechaFactura",
+            "coordenadas": [
+                101.98971774193548,
+                246.0511111111111,
+                157.19516129032257,
+                258.2133333333333
+            ],
+            "tipo": "fecha",
+            "es_identificacion": false
+        },
+        {
+            "nombre": "FechaVto",
+            "coordenadas": [
+                393.9235887096774,
+                768.0911111111111,
+                465.97137096774196,
+                786.8022222222222
+            ],
+            "tipo": "fecha",
+            "es_identificacion": false
+        },
+        {
+            "nombre": "NumFactura",
+            "coordenadas": [
+                498.7203629032258,
+                110.39555555555556,
+                582.9320564516129,
+                130.9777777777778
+            ],
+            "tipo": "texto",
+            "es_identificacion": false
+        },
+        {
+            "nombre": "Base",
+            "coordenadas": [
+                149.70967741935485,
+                732.54,
+                220.82177419354838,
+                751.2511111111111
+            ],
+            "tipo": "numerico",
+            "es_identificacion": false
+        },
+        {
+            "nombre": "Portes",
+            "coordenadas": [
+                230.17862903225807,
+                733.4755555555555,
+                261.05625,
+                751.2511111111111
+            ],
+            "tipo": "numerico",
+            "es_identificacion": false,
+            "es_auxiliar": true
+        }
+    ]
+}
