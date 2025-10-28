@@ -75,11 +75,11 @@ class EditorPlantillas:
         # Configurar geometría
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
-        window_width = min(1400, screen_width - 100)
-        window_height = min(900, screen_height - 100)
-        x = (screen_width - window_width) // 2
-        y = (screen_height - window_height) // 2
-        self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        self.window_width = min(1400, screen_width - 100)
+        self.window_height = min(900, screen_height - 100)
+        x = (screen_width - self.window_width) // 2
+        y = (screen_height - self.window_height) // 2
+        self.root.geometry(f"{self.window_width}x{self.window_height}+{x}+{y}")
 
         # Panel derecho
         frame_botones = tk.Frame(self.root, bg="gray90", padx=10)
@@ -190,21 +190,35 @@ class EditorPlantillas:
         self.imagen_original = imagenes[0]
         self.imagen = self.imagen_original.copy()
 
-        # Calcular escala
+        # Calcular escala inicial
         self.escala_x = self.imagen.width / self.pdf_width
         self.escala_y = self.imagen.height / self.pdf_height
 
-        # Redimensionar si es muy grande
-        max_width = 1200
-        max_height = 900
-        if self.imagen.width > max_width or self.imagen.height > max_height:
-            ratio = min(max_width / self.imagen.width, max_height / self.imagen.height)
+        # Calcular espacio disponible (dejando margen para UI)
+        # Ancho: toda la ventana menos panel derecho (~350px) y márgenes (~50px)
+        espacio_ancho = self.window_width - 400
+        # Alto: toda la ventana menos márgenes (~50px)
+        espacio_alto = self.window_height - 50
+
+        # Redimensionar para que quepa en el espacio disponible (sin scroll)
+        if self.imagen.width > espacio_ancho or self.imagen.height > espacio_alto:
+            # Calcular ratio manteniendo proporción
+            ratio = min(espacio_ancho / self.imagen.width, espacio_alto / self.imagen.height)
             new_width = int(self.imagen.width * ratio)
             new_height = int(self.imagen.height * ratio)
+
+            print(f"Redimensionando imagen: {self.imagen.width}x{self.imagen.height} → {new_width}x{new_height}")
+            print(f"  Espacio disponible: {espacio_ancho}x{espacio_alto}")
+            print(f"  Ratio aplicado: {ratio:.3f}")
+
             self.imagen = self.imagen.resize((new_width, new_height), Image.Resampling.LANCZOS)
             self.imagen_original = self.imagen_original.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            # Actualizar escalas (crítico para mantener coordenadas precisas)
             self.escala_x *= ratio
             self.escala_y *= ratio
+
+            print(f"  Nuevas escalas: X={self.escala_x:.3f}, Y={self.escala_y:.3f}")
 
         self.redibujar_campos()
 
