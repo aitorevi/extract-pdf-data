@@ -40,7 +40,10 @@ class EditorPlantillas:
         self.pdf_path = pdf_path
         self.imagen = None
         self.imagen_original = None
-        self.campos = {}  # {nombre_campo: coordenadas} o None si no está capturado
+        self.imagenes_paginas = []  # Lista de todas las imágenes del PDF
+        self.pagina_actual = 0  # Página que se está visualizando (0-indexed)
+        self.total_paginas = 0  # Total de páginas del PDF
+        self.campos = {}  # {nombre_campo: {'coordenadas': [...], 'pagina': N}} o None
         self.seleccion_actual = None
         self.punto_inicio = None
         self.plantilla_cargada = plantilla_existente
@@ -61,7 +64,12 @@ class EditorPlantillas:
         if plantilla_existente and 'campos' in plantilla_existente:
             for campo in plantilla_existente['campos']:
                 if campo['nombre'] in self.campos:
-                    self.campos[campo['nombre']] = campo['coordenadas']
+                    # Compatibilidad: si no tiene 'pagina', asumir página 1 (índice 0)
+                    pagina = campo.get('pagina', 1) - 1  # Convertir a 0-indexed
+                    self.campos[campo['nombre']] = {
+                        'coordenadas': campo['coordenadas'],
+                        'pagina': pagina
+                    }
 
         # Obtener dimensiones del PDF
         with pdfplumber.open(pdf_path) as pdf:
@@ -87,6 +95,22 @@ class EditorPlantillas:
 
         tk.Label(frame_botones, text="EDITOR DE PLANTILLAS", font=("Arial", 12, "bold"),
                 bg="gray90", pady=10).pack(side=tk.TOP)
+
+        # Controles de navegación entre páginas
+        frame_navegacion = tk.Frame(frame_botones, bg="gray90")
+        frame_navegacion.pack(side=tk.TOP, pady=5)
+
+        self.btn_anterior = tk.Button(frame_navegacion, text="◀", command=self.pagina_anterior,
+                                      font=("Arial", 10, "bold"), width=3)
+        self.btn_anterior.pack(side=tk.LEFT, padx=2)
+
+        self.label_pagina = tk.Label(frame_navegacion, text="Página 1/1",
+                                     bg="gray90", font=("Arial", 10))
+        self.label_pagina.pack(side=tk.LEFT, padx=5)
+
+        self.btn_siguiente = tk.Button(frame_navegacion, text="▶", command=self.pagina_siguiente,
+                                       font=("Arial", 10, "bold"), width=3)
+        self.btn_siguiente.pack(side=tk.LEFT, padx=2)
 
         # Label campo seleccionado
         self.label_seleccionado = tk.Label(frame_botones,
@@ -187,7 +211,14 @@ class EditorPlantillas:
             poppler_path = None
 
         imagenes = convert_from_path(self.pdf_path, dpi=150, poppler_path=poppler_path)
-        self.imagen_original = imagenes[0]
+        self.total_paginas = len(imagenes)
+        print(f"PDF tiene {self.total_paginas} página(s)")
+
+        # Guardar todas las imágenes sin procesar
+        self.imagenes_originales = imagenes
+
+        # Cargar la primera página
+        self.imagen_original = imagenes[self.pagina_actual]
         self.imagen = self.imagen_original.copy()
 
         # Calcular escala inicial
@@ -220,6 +251,7 @@ class EditorPlantillas:
 
             print(f"  Nuevas escalas: X={self.escala_x:.3f}, Y={self.escala_y:.3f}")
 
+        self.actualizar_controles_navegacion()
         self.redibujar_campos()
 
     def mostrar_imagen(self):
@@ -229,6 +261,65 @@ class EditorPlantillas:
                           scrollregion=(0, 0, self.imagen.width, self.imagen.height))
         self.canvas.delete("all")
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo)
+
+    def actualizar_controles_navegacion(self):
+        """Actualiza el estado de los botones de navegación."""
+        # Actualizar label de página
+        self.label_pagina.config(text=f"Página {self.pagina_actual + 1}/{self.total_paginas}")
+
+        # Habilitar/deshabilitar botones
+        if self.pagina_actual == 0:
+            self.btn_anterior.config(state=tk.DISABLED)
+        else:
+            self.btn_anterior.config(state=tk.NORMAL)
+
+        if self.pagina_actual >= self.total_paginas - 1:
+            self.btn_siguiente.config(state=tk.DISABLED)
+        else:
+            self.btn_siguiente.config(state=tk.NORMAL)
+
+    def pagina_anterior(self):
+        """Navega a la página anterior."""
+        if self.pagina_actual > 0:
+            self.pagina_actual -= 1
+            self.cargar_pagina()
+
+    def pagina_siguiente(self):
+        """Navega a la página siguiente."""
+        if self.pagina_actual < self.total_paginas - 1:
+            self.pagina_actual += 1
+            self.cargar_pagina()
+
+    def cargar_pagina(self):
+        """Carga y muestra la página actual."""
+        print(f"Cargando página {self.pagina_actual + 1}/{self.total_paginas}...")
+
+        # Cargar imagen de la página actual
+        self.imagen_original = self.imagenes_originales[self.pagina_actual].copy()
+        self.imagen = self.imagen_original.copy()
+
+        # Recalcular escalas
+        self.escala_x = self.imagen.width / self.pdf_width
+        self.escala_y = self.imagen.height / self.pdf_height
+
+        # Redimensionar si es necesario
+        espacio_ancho = self.window_width - 400
+        espacio_alto = self.window_height - 50
+
+        if self.imagen.width > espacio_ancho or self.imagen.height > espacio_alto:
+            ratio = min(espacio_ancho / self.imagen.width, espacio_alto / self.imagen.height)
+            new_width = int(self.imagen.width * ratio)
+            new_height = int(self.imagen.height * ratio)
+
+            self.imagen = self.imagen.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            self.imagen_original = self.imagen_original.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            self.escala_x *= ratio
+            self.escala_y *= ratio
+
+        # Actualizar controles y redibujar
+        self.actualizar_controles_navegacion()
+        self.redibujar_campos()
 
     def actualizar_lista_campos(self):
         """Actualiza la lista de campos con botones."""
@@ -244,7 +335,8 @@ class EditorPlantillas:
             nombre = campo_def['nombre']
             tipo = campo_def['tipo']
             descripcion = campo_def.get('descripcion', '')
-            tiene_coords = self.campos[nombre] is not None
+            campo_data = self.campos[nombre]
+            tiene_coords = campo_data is not None
 
             frame_campo = tk.Frame(self.scrollable_frame, bg="white", pady=2)
             frame_campo.pack(fill=tk.X, padx=5, pady=2)
@@ -254,13 +346,15 @@ class EditorPlantillas:
                 color_texto = "white"
                 texto_btn = "✓ EDITAR"
                 color_btn = "orange"
+                pagina_info = f" [Pág.{campo_data['pagina'] + 1}]"
             else:
                 color_fondo = "#FF8C00"  # Naranja oscuro
                 color_texto = "white"
                 texto_btn = "+ CAPTURAR"
                 color_btn = "blue"
+                pagina_info = ""
 
-            label = tk.Label(frame_campo, text=f"{i+1}. {nombre}\n({descripcion})",
+            label = tk.Label(frame_campo, text=f"{i+1}. {nombre}{pagina_info}\n({descripcion})",
                            bg=color_fondo, fg=color_texto, font=("Arial", 8, "bold"),
                            width=20, anchor="w", padx=5, wraplength=150)
             label.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -282,7 +376,8 @@ class EditorPlantillas:
             nombre = campo_def['nombre']
             tipo = campo_def['tipo']
             es_opcional = campo_def.get('opcional', False)
-            tiene_coords = self.campos[nombre] is not None
+            campo_data = self.campos[nombre]
+            tiene_coords = campo_data is not None
 
             frame_campo = tk.Frame(self.scrollable_frame, bg="white", pady=2)
             frame_campo.pack(fill=tk.X, padx=5, pady=2)
@@ -292,6 +387,7 @@ class EditorPlantillas:
                 color_texto = "white"
                 texto_btn = "✓ EDITAR"
                 color_btn = "orange"
+                pagina_info = f" [Pág.{campo_data['pagina'] + 1}]"
             else:
                 if es_opcional:
                     color_fondo = "#4682B4"  # Azul acero (opcional)
@@ -301,10 +397,11 @@ class EditorPlantillas:
                     color_texto = "white"
                 texto_btn = "+ CAPTURAR"
                 color_btn = "blue"
+                pagina_info = ""
 
             # Mostrar si es opcional
             texto_opcional = " (opcional)" if es_opcional else ""
-            label = tk.Label(frame_campo, text=f"{i+1}. {nombre}{texto_opcional}\n({tipo})",
+            label = tk.Label(frame_campo, text=f"{i+1}. {nombre}{texto_opcional}{pagina_info}\n({tipo})",
                            bg=color_fondo, fg=color_texto, font=("Arial", 9, "bold"),
                            width=20, anchor="w", padx=5)
             label.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -326,7 +423,8 @@ class EditorPlantillas:
             nombre = campo_def['nombre']
             tipo = campo_def['tipo']
             descripcion = campo_def.get('descripcion', '')
-            tiene_coords = self.campos[nombre] is not None
+            campo_data = self.campos[nombre]
+            tiene_coords = campo_data is not None
 
             frame_campo = tk.Frame(self.scrollable_frame, bg="white", pady=2)
             frame_campo.pack(fill=tk.X, padx=5, pady=2)
@@ -336,13 +434,15 @@ class EditorPlantillas:
                 color_texto = "white"
                 texto_btn = "✓ EDITAR"
                 color_btn = "orange"
+                pagina_info = f" [Pág.{campo_data['pagina'] + 1}]"
             else:
                 color_fondo = "#FFD700"  # Dorado
                 color_texto = "black"
                 texto_btn = "+ CAPTURAR"
                 color_btn = "blue"
+                pagina_info = ""
 
-            label = tk.Label(frame_campo, text=f"{i+1}. {nombre} (opcional)\n{descripcion}",
+            label = tk.Label(frame_campo, text=f"{i+1}. {nombre} (opcional){pagina_info}\n{descripcion}",
                            bg=color_fondo, fg=color_texto, font=("Arial", 8, "bold"),
                            width=20, anchor="w", padx=5, wraplength=150)
             label.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -412,10 +512,13 @@ class EditorPlantillas:
         pdf_x1 = x_max / self.escala_x
         pdf_bottom = y_max / self.escala_y
 
-        # Guardar coordenadas
-        self.campos[self.campo_seleccionado] = [pdf_x0, pdf_top, pdf_x1, pdf_bottom]
+        # Guardar coordenadas con número de página
+        self.campos[self.campo_seleccionado] = {
+            'coordenadas': [pdf_x0, pdf_top, pdf_x1, pdf_bottom],
+            'pagina': self.pagina_actual
+        }
 
-        print(f"✓ Campo actualizado: {self.campo_seleccionado} -> {self.campos[self.campo_seleccionado]}")
+        print(f"✓ Campo actualizado: {self.campo_seleccionado} -> Página {self.pagina_actual + 1}, coords: {[pdf_x0, pdf_top, pdf_x1, pdf_bottom]}")
 
         # Redibujar
         self.redibujar_campos()
@@ -433,51 +536,60 @@ class EditorPlantillas:
         self.punto_inicio = None
 
     def redibujar_campos(self):
-        """Redibuja todos los campos capturados."""
+        """Redibuja todos los campos capturados de la página actual."""
         self.imagen = self.imagen_original.copy()
         draw = ImageDraw.Draw(self.imagen)
 
-        # Dibujar campos de identificación en azul
+        # Dibujar campos de identificación en azul (solo de la página actual)
         for i, campo_def in enumerate(CAMPOS_IDENTIFICACION, 1):
             nombre = campo_def['nombre']
-            coords = self.campos[nombre]
+            campo_data = self.campos[nombre]
 
-            if coords:
-                ix0 = int(coords[0] * self.escala_x)
-                iy0 = int(coords[1] * self.escala_y)
-                ix1 = int(coords[2] * self.escala_x)
-                iy1 = int(coords[3] * self.escala_y)
+            if campo_data and isinstance(campo_data, dict):
+                # Solo dibujar si es de la página actual
+                if campo_data['pagina'] == self.pagina_actual:
+                    coords = campo_data['coordenadas']
+                    ix0 = int(coords[0] * self.escala_x)
+                    iy0 = int(coords[1] * self.escala_y)
+                    ix1 = int(coords[2] * self.escala_x)
+                    iy1 = int(coords[3] * self.escala_y)
 
-                draw.rectangle([ix0, iy0, ix1, iy1], outline="blue", width=3)
-                draw.text((ix0 + 5, iy0 + 5), f"ID{i}: {nombre}", fill="blue")
+                    draw.rectangle([ix0, iy0, ix1, iy1], outline="blue", width=3)
+                    draw.text((ix0 + 5, iy0 + 5), f"ID{i}: {nombre}", fill="blue")
 
-        # Dibujar campos de datos en verde
+        # Dibujar campos de datos en verde (solo de la página actual)
         for i, campo_def in enumerate(CAMPOS_PREDEFINIDOS, 1):
             nombre = campo_def['nombre']
-            coords = self.campos[nombre]
+            campo_data = self.campos[nombre]
 
-            if coords:
-                ix0 = int(coords[0] * self.escala_x)
-                iy0 = int(coords[1] * self.escala_y)
-                ix1 = int(coords[2] * self.escala_x)
-                iy1 = int(coords[3] * self.escala_y)
+            if campo_data and isinstance(campo_data, dict):
+                # Solo dibujar si es de la página actual
+                if campo_data['pagina'] == self.pagina_actual:
+                    coords = campo_data['coordenadas']
+                    ix0 = int(coords[0] * self.escala_x)
+                    iy0 = int(coords[1] * self.escala_y)
+                    ix1 = int(coords[2] * self.escala_x)
+                    iy1 = int(coords[3] * self.escala_y)
 
-                draw.rectangle([ix0, iy0, ix1, iy1], outline="green", width=3)
-                draw.text((ix0 + 5, iy0 + 5), f"{i}. {nombre}", fill="green")
+                    draw.rectangle([ix0, iy0, ix1, iy1], outline="green", width=3)
+                    draw.text((ix0 + 5, iy0 + 5), f"{i}. {nombre}", fill="green")
 
-        # Dibujar campos auxiliares en naranja
+        # Dibujar campos auxiliares en naranja (solo de la página actual)
         for i, campo_def in enumerate(CAMPOS_AUXILIARES, 1):
             nombre = campo_def['nombre']
-            coords = self.campos[nombre]
+            campo_data = self.campos[nombre]
 
-            if coords:
-                ix0 = int(coords[0] * self.escala_x)
-                iy0 = int(coords[1] * self.escala_y)
-                ix1 = int(coords[2] * self.escala_x)
-                iy1 = int(coords[3] * self.escala_y)
+            if campo_data and isinstance(campo_data, dict):
+                # Solo dibujar si es de la página actual
+                if campo_data['pagina'] == self.pagina_actual:
+                    coords = campo_data['coordenadas']
+                    ix0 = int(coords[0] * self.escala_x)
+                    iy0 = int(coords[1] * self.escala_y)
+                    ix1 = int(coords[2] * self.escala_x)
+                    iy1 = int(coords[3] * self.escala_y)
 
-                draw.rectangle([ix0, iy0, ix1, iy1], outline="orange", width=3)
-                draw.text((ix0 + 5, iy0 + 5), f"AUX{i}: {nombre}", fill="orange")
+                    draw.rectangle([ix0, iy0, ix1, iy1], outline="orange", width=3)
+                    draw.text((ix0 + 5, iy0 + 5), f"AUX{i}: {nombre}", fill="orange")
 
         self.mostrar_imagen()
 
@@ -600,11 +712,12 @@ class EditorPlantillas:
         # Añadir campos de identificación
         for campo_def in CAMPOS_IDENTIFICACION:
             nombre = campo_def['nombre']
-            coords = self.campos[nombre]
-            if coords:
+            campo_data = self.campos[nombre]
+            if campo_data:
                 campos_lista.append({
                     "nombre": nombre,
-                    "coordenadas": coords,
+                    "coordenadas": campo_data['coordenadas'],
+                    "pagina": campo_data['pagina'] + 1,  # Guardar en formato 1-indexed
                     "tipo": campo_def['tipo'],
                     "es_identificacion": True
                 })
@@ -612,11 +725,12 @@ class EditorPlantillas:
         # Añadir campos de datos
         for campo_def in CAMPOS_PREDEFINIDOS:
             nombre = campo_def['nombre']
-            coords = self.campos[nombre]
-            if coords:
+            campo_data = self.campos[nombre]
+            if campo_data:
                 campos_lista.append({
                     "nombre": nombre,
-                    "coordenadas": coords,
+                    "coordenadas": campo_data['coordenadas'],
+                    "pagina": campo_data['pagina'] + 1,  # Guardar en formato 1-indexed
                     "tipo": campo_def['tipo'],
                     "es_identificacion": False
                 })
@@ -624,11 +738,12 @@ class EditorPlantillas:
         # Añadir campos auxiliares
         for campo_def in CAMPOS_AUXILIARES:
             nombre = campo_def['nombre']
-            coords = self.campos[nombre]
-            if coords:
+            campo_data = self.campos[nombre]
+            if campo_data:
                 campos_lista.append({
                     "nombre": nombre,
-                    "coordenadas": coords,
+                    "coordenadas": campo_data['coordenadas'],
+                    "pagina": campo_data['pagina'] + 1,  # Guardar en formato 1-indexed
                     "tipo": campo_def['tipo'],
                     "es_identificacion": False,
                     "es_auxiliar": True
@@ -683,6 +798,10 @@ def main():
 
     opcion = input("\nSelecciona (1/2): ").strip()
 
+    # Crear ventana raíz temporal para los diálogos (evita ventanas en blanco en algunos PCs)
+    root_temp = tk.Tk()
+    root_temp.withdraw()  # Ocultar la ventana raíz
+
     plantilla_existente = None
 
     if opcion == "2":
@@ -699,6 +818,7 @@ def main():
                 print(f"✓ Plantilla cargada: {os.path.basename(archivo)}")
             except Exception as e:
                 print(f"Error: {e}")
+                root_temp.destroy()
                 return
 
     print("\nSelecciona el PDF de la factura...")
@@ -710,9 +830,13 @@ def main():
 
     if not pdf_path:
         print("No se seleccionó PDF")
+        root_temp.destroy()
         return
 
     print(f"✓ PDF seleccionado: {os.path.basename(pdf_path)}")
+
+    # Destruir la ventana temporal antes de crear la ventana del editor
+    root_temp.destroy()
 
     try:
         app = EditorPlantillas(pdf_path, plantilla_existente)

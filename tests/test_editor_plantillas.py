@@ -140,11 +140,14 @@ class TestEditorPlantillasInit:
         # Crear editor con plantilla
         editor = EditorPlantillas("test.pdf", plantilla_existente)
 
-        # Verificar que se cargaron las coordenadas
+        # Verificar que se cargaron las coordenadas (ahora son dicts con coordenadas y página)
         assert editor.plantilla_cargada == plantilla_existente
-        assert editor.campos['CIF_Identificacion'] == [100, 50, 300, 70]
-        assert editor.campos['FechaFactura'] == [100, 100, 200, 120]
-        assert editor.campos['NumFactura'] == [100, 150, 200, 170]
+        assert editor.campos['CIF_Identificacion']['coordenadas'] == [100, 50, 300, 70]
+        assert editor.campos['CIF_Identificacion']['pagina'] == 0  # página 1 se convierte a índice 0
+        assert editor.campos['FechaFactura']['coordenadas'] == [100, 100, 200, 120]
+        assert editor.campos['FechaFactura']['pagina'] == 0
+        assert editor.campos['NumFactura']['coordenadas'] == [100, 150, 200, 170]
+        assert editor.campos['NumFactura']['pagina'] == 0
 
         # Campos no en la plantilla deben ser None
         assert editor.campos['Base'] is None
@@ -239,10 +242,10 @@ class TestEditorPlantillasGuardar:
 
         # Crear editor SIN campos de identificación pero CON todos los campos de datos
         editor = EditorPlantillas("test.pdf")
-        editor.campos['FechaFactura'] = [100, 100, 200, 120]
-        editor.campos['FechaVto'] = [100, 150, 200, 170]
-        editor.campos['NumFactura'] = [100, 200, 200, 220]
-        editor.campos['Base'] = [100, 250, 200, 270]
+        editor.campos['FechaFactura'] = {'coordenadas': [100, 100, 200, 120], 'pagina': 0}
+        editor.campos['FechaVto'] = {'coordenadas': [100, 150, 200, 170], 'pagina': 0}
+        editor.campos['NumFactura'] = {'coordenadas': [100, 200, 200, 220], 'pagina': 0}
+        editor.campos['Base'] = {'coordenadas': [100, 250, 200, 270], 'pagina': 0}
 
         # Mock messagebox y simpledialog para capturar advertencia
         with patch('src.editor_plantillas.messagebox.showwarning') as mock_warning:
@@ -379,13 +382,13 @@ class TestEditorPlantillasIntegracion:
         # Crear editor
         editor = EditorPlantillas("test.pdf")
 
-        # Simular captura de TODOS los campos
-        editor.campos['CIF_Identificacion'] = [50, 30, 200, 50]
-        editor.campos['Nombre_Identificacion'] = [50, 60, 200, 80]
-        editor.campos['FechaFactura'] = [50, 100, 150, 120]
-        editor.campos['FechaVto'] = [50, 130, 150, 150]
-        editor.campos['NumFactura'] = [200, 100, 300, 120]
-        editor.campos['Base'] = [200, 130, 300, 150]
+        # Simular captura de TODOS los campos (ahora con estructura de página)
+        editor.campos['CIF_Identificacion'] = {'coordenadas': [50, 30, 200, 50], 'pagina': 0}
+        editor.campos['Nombre_Identificacion'] = {'coordenadas': [50, 60, 200, 80], 'pagina': 0}
+        editor.campos['FechaFactura'] = {'coordenadas': [50, 100, 150, 120], 'pagina': 0}
+        editor.campos['FechaVto'] = {'coordenadas': [50, 130, 150, 150], 'pagina': 0}
+        editor.campos['NumFactura'] = {'coordenadas': [200, 100, 300, 120], 'pagina': 0}
+        editor.campos['Base'] = {'coordenadas': [200, 130, 300, 150], 'pagina': 0}
 
         # Guardar plantilla con todos los campos
         with patch('src.editor_plantillas.simpledialog.askstring', side_effect=['TestProvider', 'B11111111', 'test_provider']):
