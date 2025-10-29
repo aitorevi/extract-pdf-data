@@ -6,13 +6,13 @@
 
 ## 🎯 Estado Actual
 
-- **Rama actual**: `feature/validacion-cif-cliente` 🔧 (PR pendiente)
+- **Rama actual**: `feature/validacion-cif-cliente` ✅ (LISTO PARA MERGEAR)
 - **Fase activa**: FASE 3 - Corner Cases y Plantillas 🔧 (EN PROGRESO)
 - **Issues completados**: Fase 1 ✅ + Fase 2A ✅ + Issues #8, #9, #10, #12 + Validación CIF Cliente ✅
-- **Último logro**: Validación de CIF del cliente completada - Filtrado de facturas no corporativas ✅
-- **Coverage total actual**: 75% ⭐ (objetivo: 80%)
-- **Tests totales**: 247 passed + 2 skipped ✅ (37 nuevos tests)
-- **Próximo paso**: Crear PR y mergear validación CIF cliente
+- **Último logro**: Validación de CIF del cliente COMPLETADA - Campo obligatorio + Filtrado automático ✅
+- **Coverage total actual**: 76% ⭐ (+2% desde inicio feature) (objetivo: 80%)
+- **Tests totales**: 247 passed + 2 skipped ✅ (37 nuevos tests, 6 commits)
+- **Próximo paso**: Mergear PR validación CIF cliente a main
 
 ## ✅ Completado
 
@@ -351,7 +351,7 @@
 - `2b7f8a6` - Arreglar tests compatibles con nueva implementación multipágina
 - `74e387b` - Actualizar PROGRESS.md - Issue #12 completado
 
-### Validación de CIF del Cliente para Filtrar Facturas ✅ COMPLETADO
+### Validación de CIF del Cliente para Filtrar Facturas ✅ COMPLETADO Y LISTO PARA MERGEAR
 - [x] Branch `feature/validacion-cif-cliente` creado
 - [x] Análisis de código existente y validación de CIF del proveedor
 - [x] Tests TDD para Value Object CIF (25 tests)
@@ -360,10 +360,14 @@
 - [x] Implementación de captura de CIF del cliente en extracción
 - [x] Implementación de validación de CIF cliente contra E98530876
 - [x] Actualización del editor de plantillas para incluir campo CIF_Cliente
+- [x] CIF_Cliente ahora es campo OBLIGATORIO en todas las plantillas
+- [x] CIF del proveedor también usa Value Object para saneamiento
+- [x] Facturas con CIF incorrecto se filtran automáticamente del Excel
 - [x] Todos los tests pasando (247 passed, 2 skipped)
-- [x] Coverage: 75% total, 94% en módulo CIF
-- [x] Commit realizado y pushed a origin
-- [x] PR pendiente de creación
+- [x] Coverage: 76% total (+2%), 94% en módulo CIF
+- [x] Todos los commits realizados y pushed a origin
+- [x] PROGRESS.md actualizado
+- [x] PR listo para crear
 
 **Objetivo:**
 Capturar y validar el CIF del cliente en facturas para verificar que pertenecen a nuestra empresa (CIF: E98530876). Esto previene que facturas de otros clientes (ej: facturas de luz) se incluyan incorrectamente en el Excel.
@@ -385,8 +389,19 @@ Capturar y validar el CIF del cliente en facturas para verificar que pertenecen 
 - **Validación contra CIF corporativo**:
   * Constante `CIF_CORPORATIVO = "E98530876"` en PDFExtractor
   * Método `_validar_cif_cliente()` compara contra CIF corporativo
-  * Facturas con CIF incorrecto: `_CIF_Valido=False` + `_Motivo_Rechazo`
+  * Facturas con CIF incorrecto: `_CIF_Valido=False` + `_Motivo_Rechazo` + `_Error`
   * Facturas con CIF correcto: `_CIF_Valido=True`
+  * Campo `_Error` hace que se filtren automáticamente del Excel
+
+- **Campo CIF_Cliente OBLIGATORIO** (BREAKING CHANGE):
+  * Todas las plantillas DEBEN tener campo `CIF_Cliente` definido
+  * Plantillas sin CIF_Cliente → facturas rechazadas con error claro
+  * Mensaje de error indica cómo solucionarlo (añadir campo a plantilla)
+
+- **CIF del proveedor también mejorado**:
+  * Ahora usa Value Object CIF para saneamiento
+  * Elimina correctamente guiones, barras, espacios
+  * CIF "b-84919760" ahora coincide con "b84919760" ✅
 
 - **Editor de plantillas actualizado**:
   * Nuevo campo `CIF_Cliente` en `CAMPOS_IDENTIFICACION`
@@ -394,26 +409,36 @@ Capturar y validar el CIF del cliente en facturas para verificar que pertenecen 
 
 **Archivos modificados:**
 - `src/utils/cif.py` (nuevo) - Value Object CIF con saneamiento y validación
-- `src/pdf_extractor.py` - Métodos de extracción y validación de CIF cliente
+- `src/pdf_extractor.py` - Métodos de extracción, validación y campo obligatorio
 - `src/editor_plantillas.py` - Añadir CIF_Cliente a campos de identificación
 - `tests/test_cif.py` (nuevo) - 25 tests para Value Object CIF
 - `tests/test_validacion_cif_cliente.py` (nuevo) - 12 tests para validación
 - `tests/test_editor_plantillas.py` - Actualizar test campos identificación
+- `tests/test_error_handling_export.py` - Actualizar tests con CIF_Cliente
+- `tests/test_column_standardization.py` - Actualizar tests con CIF_Cliente
+- `PROGRESS.md` - Documentación completa del feature
 
 **Tests totales:**
 - 247 passed, 2 skipped ✅
 - +37 tests nuevos (25 CIF + 12 validación)
-- Coverage: 75% total, 94% en módulo CIF
+- Coverage: 76% total (+2%), 94% en módulo CIF
 
 **Criterios de aceptación cumplidos:**
-- ✅ Las facturas con CIF cliente diferente a E98530876 se marcan como inválidas
-- ✅ Se sanean CIFs con guiones, barras, espacios
+- ✅ Las facturas con CIF cliente diferente a E98530876 se marcan como inválidas y NO se exportan
+- ✅ Se sanean CIFs con guiones, barras, espacios (tanto proveedor como cliente)
 - ✅ El CIF cliente NO aparece en el Excel exportado (campo interno con prefijo _)
 - ✅ Tests cubren casos: CIF válido, inválido, con guiones, espacios, etc.
 - ✅ Todos los tests pasan (>90% coverage en módulo CIF)
+- ✅ Campo CIF_Cliente es obligatorio en todas las plantillas
+- ✅ Mensaje de error claro si falta el campo en plantilla
 
 **Commits (en feature/validacion-cif-cliente)**:
 - `e9a0ef6` - Añadir validación de CIF del cliente para filtrar facturas
+- `f5adfe3` - Actualizar PROGRESS.md - Validación CIF Cliente completada
+- `c20f914` - Fix: Usar Value Object CIF también para identificación de proveedor
+- `5745447` - Fix: Validación CIF cliente ahora filtra correctamente del Excel
+- `513ca59` - Fix: Corregir extracción de CIF_Cliente para usar estructura correcta
+- `b19e8d6` - Feature: Hacer campo CIF_Cliente obligatorio en todas las plantillas (BREAKING CHANGE)
 
 ### Issue #13: Campos opcionales/condicionales 📋 PRÓXIMO
 - [x] Identificado como corner case prioritario
@@ -664,10 +689,10 @@ pytest -m unit
 ## 📈 Resumen de Progreso
 
 ### Fases Completadas
-- ✅ **FASE 1**: Testing y Calidad (75% coverage)
+- ✅ **FASE 1**: Testing y Calidad (76% coverage)
 - ✅ **FASE 2A**: Arquitectura - DataCleaners + Eliminación duplicados
 
-### Issues Completados (Total: 7)
+### Issues Completados (Total: 8)
 - ✅ Issue #1: Setup pytest
 - ✅ Issue #2: Tests pdf_extractor.py
 - ✅ Issue #3: Estandarizar nombres columnas Excel
@@ -675,19 +700,19 @@ pytest -m unit
 - ✅ Issue #9: Extraer DataCleaners
 - ✅ Issue #10: Eliminar duplicaciones
 - ✅ Issue #12: Soporte multipágina
-- ✅ **Validación CIF del Cliente** ⭐ **NUEVO** (PR pendiente)
+- ✅ **Validación CIF del Cliente** ⭐ **COMPLETADO** (Listo para mergear)
 
 ### En Progreso
 - 🔧 **FASE 3**: Corner Cases y Plantillas
-- 🔧 **PR Validación CIF Cliente**: En review
+- 🔧 **PR Validación CIF Cliente**: Listo para mergear
 
 ### Próximo Issue
-- 📋 Mergear PR validación CIF cliente
+- 📋 Mergear PR validación CIF cliente a main
 - 📋 **Issue #13**: Campos opcionales/condicionales (definir requisitos)
 
 ---
 
-**Última acción**: Validación CIF Cliente completada y pushed - PR pendiente ✅
-**Próxima acción recomendada**: Crear PR para validación CIF cliente y mergear
+**Última acción**: Validación CIF Cliente completada - Campo obligatorio implementado ✅
+**Próxima acción recomendada**: Mergear PR a main
 
 **Bloqueadores actuales**: Ninguno ✅
