@@ -174,19 +174,23 @@ class PDFExtractor:
                             bbox = tuple(coordenadas)
                             area_recortada = pagina.crop(bbox)
                             texto = area_recortada.extract_text() or ""
-                            texto = texto.strip().lower()
+                            texto = texto.strip()
 
                             if nombre_campo == 'CIF_Identificacion':
-                                cif_extraido = texto
-                                print(f"    CIF extraído: {cif_extraido}")
+                                # Sanear CIF usando el Value Object
+                                cif_obj = CIF(texto)
+                                cif_extraido = cif_obj.value
+                                print(f"    CIF extraído: {texto} -> normalizado: {cif_extraido}")
                             elif nombre_campo == 'Nombre_Identificacion':
-                                nombre_extraido = texto
+                                nombre_extraido = texto.lower()
                                 print(f"    Nombre extraído: {nombre_extraido}")
                         except Exception as e:
                             print(f"    Error extrayendo {nombre_campo}: {e}")
 
                     # Validar coincidencias - CUALQUIERA de las dos sirve
-                    cif_plantilla = plantilla.get('cif_proveedor', '').strip().lower()
+                    # Sanear CIF de plantilla usando Value Object
+                    cif_plantilla_obj = CIF(plantilla.get('cif_proveedor', ''))
+                    cif_plantilla = cif_plantilla_obj.value
                     nombre_plantilla = plantilla.get('nombre_proveedor', '').strip().lower()
 
                     # Opción 1: Verificar CIF (debe coincidir exactamente)
