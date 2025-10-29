@@ -1,0 +1,25 @@
+# Requirements para Extract PDF Data
+# Sistema Operativo: Windows
+# Python: 3.8+
+
+# Procesamiento de PDFs
+pdfplumber==0.11.4
+
+# Manipulación de datos
+pandas>=2.0.0
+
+# Exportación a Excel
+openpyxl>=3.1.0
+
+# Conversión PDF a imagen (para editor de plantillas)
+pdf2image>=1.16.3
+# NOTA WINDOWS: Requiere Poppler for Windows
+# Descargar de: https://github.com/oschwartz10612/poppler-windows/releases/
+# Extraer y añadir la carpeta bin\ al PATH del sistema
+# O especificar poppler_path al usar pdf2image
+
+# Procesamiento de imágenes
+Pillow>=10.0.0
+
+# Interfaz gráfica (incluido en Python standard library, no necesita instalación)
+# tkinter - viene preinstalado con Python en Windows

@@ -11,6 +11,7 @@ import re
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from src.utils.data_cleaners import DataCleaner
+from src.utils.cif import CIF
 
 
 class PDFExtractor:
@@ -31,6 +32,9 @@ class PDFExtractor:
         'base': 'Base',
         'base-imponible': 'Base',
     }
+
+    # CIF corporativo para validar facturas del cliente
+    CIF_CORPORATIVO = "E98530876"
 
     def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas",
                  trimestre: str = "", año: str = ""):
@@ -170,19 +174,23 @@ class PDFExtractor:
                             bbox = tuple(coordenadas)
                             area_recortada = pagina.crop(bbox)
                             texto = area_recortada.extract_text() or ""
-                            texto = texto.strip().lower()
+                            texto = texto.strip()
 
                             if nombre_campo == 'CIF_Identificacion':
-                                cif_extraido = texto
-                                print(f"    CIF extraído: {cif_extraido}")
+                                # Sanear CIF usando el Value Object
+                                cif_obj = CIF(texto)
+                                cif_extraido = cif_obj.value
+                                print(f"    CIF extraído: {texto} -> normalizado: {cif_extraido}")
                             elif nombre_campo == 'Nombre_Identificacion':
-                                nombre_extraido = texto
+                                nombre_extraido = texto.lower()
                                 print(f"    Nombre extraído: {nombre_extraido}")
                         except Exception as e:
                             print(f"    Error extrayendo {nombre_campo}: {e}")
 
                     # Validar coincidencias - CUALQUIERA de las dos sirve
-                    cif_plantilla = plantilla.get('cif_proveedor', '').strip().lower()
+                    # Sanear CIF de plantilla usando Value Object
+                    cif_plantilla_obj = CIF(plantilla.get('cif_proveedor', ''))
+                    cif_plantilla = cif_plantilla_obj.value
                     nombre_plantilla = plantilla.get('nombre_proveedor', '').strip().lower()
 
                     # Opción 1: Verificar CIF (debe coincidir exactamente)
@@ -251,6 +259,80 @@ class PDFExtractor:
         similitud = (coincidencias / max_len) * 100
 
         return similitud
+
+    def _extraer_cif_cliente(self, pdf: Any, plantilla: Dict) -> Optional[str]:
+        """
+        Extrae el CIF del cliente desde el PDF usando los campos de identificación.
+
+        Args:
+            pdf: Objeto PDF de pdfplumber
+            plantilla: Plantilla con campos definidos
+
+        Returns:
+            CIF del cliente normalizado o None si no se encuentra
+        """
+        try:
+            # Buscar el campo CIF_Cliente en los campos de la plantilla
+            for campo in plantilla.get('campos', []):
+                nombre_campo = campo.get('nombre', '')
+
+                # Buscar específicamente el campo CIF_Cliente
+                if nombre_campo == 'CIF_Cliente':
+                    try:
+                        pagina_num = campo.get('pagina', 1)
+                        if pagina_num > len(pdf.pages):
+                            continue
+
+                        page = pdf.pages[pagina_num - 1]
+                        coordenadas = campo.get('coordenadas', [])
+                        if len(coordenadas) != 4:
+                            continue
+
+                        bbox = tuple(coordenadas)
+                        area_recortada = page.crop(bbox)
+                        texto = area_recortada.extract_text() or ""
+
+                        if texto:
+                            # Sanear el CIF usando el Value Object
+                            cif = CIF(texto.strip())
+                            print(f"    CIF Cliente extraído: '{texto.strip()}' -> normalizado: '{cif.value}'")
+                            return cif.value
+
+                    except Exception as e:
+                        print(f"    Error extrayendo CIF_Cliente: {e}")
+
+        except Exception as e:
+            print(f"Error en _extraer_cif_cliente: {e}")
+
+        return None
+
+    def _validar_cif_cliente(self, cif_cliente_str: Optional[str]) -> bool:
+        """
+        Valida que el CIF del cliente coincida con el CIF corporativo.
+
+        Args:
+            cif_cliente_str: String con el CIF del cliente extraído del PDF
+
+        Returns:
+            True si el CIF coincide con el corporativo, False en caso contrario
+        """
+        if not cif_cliente_str:
+            print(f"    WARN: Factura sin CIF del cliente")
+            return False
+
+        cif_cliente = CIF(cif_cliente_str)
+        cif_corporativo = CIF(self.CIF_CORPORATIVO)
+
+        if not cif_cliente.is_valid():
+            print(f"    WARN: CIF del cliente inválido: '{cif_cliente_str}'")
+            return False
+
+        if cif_cliente == cif_corporativo:
+            print(f"    OK: CIF del cliente coincide: {cif_cliente.value}")
+            return True
+        else:
+            print(f"    ERROR: CIF del cliente NO coincide. Extraído: '{cif_cliente.value}' vs Esperado: '{cif_corporativo.value}'")
+            return False
 
     def _procesar_campos_auxiliares(self, datos_extraidos: dict) -> dict:
         """
@@ -375,6 +457,37 @@ class PDFExtractor:
                 # Validar que se extrajeron datos útiles
                 if campos_extraidos_exitosamente == 0:
                     raise Exception("No se pudo extraer ningún campo válido - posible error en plantilla o PDF no compatible")
+
+                # Validar que la plantilla tenga el campo CIF_Cliente definido
+                tiene_campo_cif_cliente = any(
+                    campo.get('nombre') == 'CIF_Cliente'
+                    for campo in plantilla.get('campos', [])
+                )
+
+                if not tiene_campo_cif_cliente:
+                    # Rechazar facturas de plantillas sin CIF_Cliente
+                    motivo = f"Plantilla '{proveedor_id}' no tiene campo CIF_Cliente - no se puede validar"
+                    datos_factura['_Error'] = motivo
+                    datos_factura['_Motivo_Rechazo'] = motivo
+                    print(f"  ERROR: {motivo}")
+                    print(f"  SOLUCION: Añade el campo CIF_Cliente a la plantilla usando el editor")
+                else:
+                    print("  Verificando CIF del cliente...")
+                    cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
+
+                    # Guardar CIF del cliente como campo interno (no se exporta)
+                    datos_factura['_CIF_Cliente'] = cif_cliente if cif_cliente else ""
+
+                    # Validar CIF del cliente
+                    if not self._validar_cif_cliente(cif_cliente):
+                        # Marcar factura como rechazada por CIF incorrecto
+                        datos_factura['_CIF_Valido'] = False
+                        motivo = f"CIF del cliente no coincide con el corporativo ({self.CIF_CORPORATIVO})"
+                        datos_factura['_Motivo_Rechazo'] = motivo
+                        datos_factura['_Error'] = motivo  # Añadir campo _Error para que se filtre automáticamente
+                        print(f"  WARN: Factura rechazada - CIF cliente incorrecto")
+                    else:
+                        datos_factura['_CIF_Valido'] = True
 
         except Exception as e:
             print(f"Error procesando PDF {ruta_pdf}: {e}")
@@ -807,6 +920,37 @@ class PDFExtractor:
                     # Validar que se extrajeron datos útiles (además del NumFactura)
                     if campos_extraidos_exitosamente <= 1:  # Solo NumFactura no cuenta
                         print(f"    ADVERTENCIA: Pocos campos extraídos ({campos_extraidos_exitosamente})")
+
+                    # Validar que la plantilla tenga el campo CIF_Cliente definido
+                    tiene_campo_cif_cliente = any(
+                        campo.get('nombre') == 'CIF_Cliente'
+                        for campo in plantilla.get('campos', [])
+                    )
+
+                    if not tiene_campo_cif_cliente:
+                        # Rechazar facturas de plantillas sin CIF_Cliente
+                        motivo = f"Plantilla '{proveedor_id}' no tiene campo CIF_Cliente - no se puede validar"
+                        datos_factura['_Error'] = motivo
+                        datos_factura['_Motivo_Rechazo'] = motivo
+                        print(f"    ERROR: {motivo}")
+                        print(f"    SOLUCION: Añade el campo CIF_Cliente a la plantilla usando el editor")
+                    else:
+                        print("    Verificando CIF del cliente...")
+                        cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
+
+                        # Guardar CIF del cliente como campo interno (no se exporta)
+                        datos_factura['_CIF_Cliente'] = cif_cliente if cif_cliente else ""
+
+                        # Validar CIF del cliente
+                        if not self._validar_cif_cliente(cif_cliente):
+                            # Marcar factura como rechazada por CIF incorrecto
+                            datos_factura['_CIF_Valido'] = False
+                            motivo = f"CIF del cliente no coincide con el corporativo ({self.CIF_CORPORATIVO})"
+                            datos_factura['_Motivo_Rechazo'] = motivo
+                            datos_factura['_Error'] = motivo  # Añadir campo _Error para que se filtre automáticamente
+                            print(f"    WARN: Factura rechazada - CIF cliente incorrecto")
+                        else:
+                            datos_factura['_CIF_Valido'] = True
 
                     facturas_extraidas.append(datos_factura)
 

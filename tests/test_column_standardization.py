@@ -396,6 +396,12 @@ class TestIntegrationColumnStandardization:
             "nombre_proveedor": "Test Provider S.L.",
             "campos": [
                 {
+                    "nombre": "CIF_Cliente",
+                    "coordenadas": [100, 90, 200, 95],
+                    "tipo": "texto",
+                    "es_identificacion": True
+                },
+                {
                     "nombre": "num-factura",
                     "coordenadas": [100, 100, 200, 120],
                     "tipo": "texto"
@@ -431,7 +437,9 @@ class TestIntegrationColumnStandardization:
             # Simular diferentes valores para diferentes campos
             def mock_extract(bbox):
                 mock_result = MagicMock()
-                if bbox[1] < 125:  # num-factura
+                if bbox[1] < 96:  # CIF_Cliente
+                    mock_result.extract_text.return_value = "E98530876"
+                elif bbox[1] < 125:  # num-factura
                     mock_result.extract_text.return_value = "FAC-2025-001"
                 elif bbox[1] < 155:  # fecha-factura
                     mock_result.extract_text.return_value = "15/01/2025"
