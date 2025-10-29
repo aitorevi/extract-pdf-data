@@ -2,17 +2,17 @@
 
 # 📊 Progreso del Proyecto
 
-**Última actualización**: 2025-10-27
+**Última actualización**: 2025-10-29
 
 ## 🎯 Estado Actual
 
-- **Rama actual**: `main` ✅
+- **Rama actual**: `feature/validacion-cif-cliente` 🔧 (PR pendiente)
 - **Fase activa**: FASE 3 - Corner Cases y Plantillas 🔧 (EN PROGRESO)
-- **Issues completados**: Fase 1 ✅ + Fase 2A ✅ + Issues #8, #9, #10, #12 cerrados y mergeados ✅
-- **Último logro**: Issue #12 completado y mergeado a main - Soporte multipágina implementado y testeado ✅
-- **Coverage total actual**: 78% ⭐ (objetivo: 80%)
-- **Tests totales**: 198 passed + 2 skipped ✅ (0 warnings)
-- **Próximo paso**: Definir requisitos Issue #13 (campos opcionales/condicionales)
+- **Issues completados**: Fase 1 ✅ + Fase 2A ✅ + Issues #8, #9, #10, #12 + Validación CIF Cliente ✅
+- **Último logro**: Validación de CIF del cliente completada - Filtrado de facturas no corporativas ✅
+- **Coverage total actual**: 75% ⭐ (objetivo: 80%)
+- **Tests totales**: 247 passed + 2 skipped ✅ (37 nuevos tests)
+- **Próximo paso**: Crear PR y mergear validación CIF cliente
 
 ## ✅ Completado
 
@@ -351,6 +351,70 @@
 - `2b7f8a6` - Arreglar tests compatibles con nueva implementación multipágina
 - `74e387b` - Actualizar PROGRESS.md - Issue #12 completado
 
+### Validación de CIF del Cliente para Filtrar Facturas ✅ COMPLETADO
+- [x] Branch `feature/validacion-cif-cliente` creado
+- [x] Análisis de código existente y validación de CIF del proveedor
+- [x] Tests TDD para Value Object CIF (25 tests)
+- [x] Implementación de Value Object CIF con saneamiento y validación
+- [x] Tests TDD para captura de CIF del cliente (12 tests)
+- [x] Implementación de captura de CIF del cliente en extracción
+- [x] Implementación de validación de CIF cliente contra E98530876
+- [x] Actualización del editor de plantillas para incluir campo CIF_Cliente
+- [x] Todos los tests pasando (247 passed, 2 skipped)
+- [x] Coverage: 75% total, 94% en módulo CIF
+- [x] Commit realizado y pushed a origin
+- [x] PR pendiente de creación
+
+**Objetivo:**
+Capturar y validar el CIF del cliente en facturas para verificar que pertenecen a nuestra empresa (CIF: E98530876). Esto previene que facturas de otros clientes (ej: facturas de luz) se incluyan incorrectamente en el Excel.
+
+**Implementación:**
+- **Value Object CIF** (`src/utils/cif.py`):
+  * Saneamiento automático: trim, elimina guiones/barras/espacios
+  * Normalización a mayúsculas
+  * Validación de formato (letra+8 dígitos o 8 dígitos+letra)
+  * Comparación por valor
+  * Inmutable
+  * Coverage: 94%
+
+- **Extracción de CIF del cliente** (`src/pdf_extractor.py`):
+  * Método `_extraer_cif_cliente()` extrae CIF desde coordenadas de identificación
+  * Campo interno `_CIF_Cliente` (no se exporta al Excel)
+  * Integrado en `extraer_datos_factura()` y `extraer_datos_factura_multipagina()`
+
+- **Validación contra CIF corporativo**:
+  * Constante `CIF_CORPORATIVO = "E98530876"` en PDFExtractor
+  * Método `_validar_cif_cliente()` compara contra CIF corporativo
+  * Facturas con CIF incorrecto: `_CIF_Valido=False` + `_Motivo_Rechazo`
+  * Facturas con CIF correcto: `_CIF_Valido=True`
+
+- **Editor de plantillas actualizado**:
+  * Nuevo campo `CIF_Cliente` en `CAMPOS_IDENTIFICACION`
+  * Descripción: "CIF del cliente (destinatario de la factura) - Se valida contra E98530876"
+
+**Archivos modificados:**
+- `src/utils/cif.py` (nuevo) - Value Object CIF con saneamiento y validación
+- `src/pdf_extractor.py` - Métodos de extracción y validación de CIF cliente
+- `src/editor_plantillas.py` - Añadir CIF_Cliente a campos de identificación
+- `tests/test_cif.py` (nuevo) - 25 tests para Value Object CIF
+- `tests/test_validacion_cif_cliente.py` (nuevo) - 12 tests para validación
+- `tests/test_editor_plantillas.py` - Actualizar test campos identificación
+
+**Tests totales:**
+- 247 passed, 2 skipped ✅
+- +37 tests nuevos (25 CIF + 12 validación)
+- Coverage: 75% total, 94% en módulo CIF
+
+**Criterios de aceptación cumplidos:**
+- ✅ Las facturas con CIF cliente diferente a E98530876 se marcan como inválidas
+- ✅ Se sanean CIFs con guiones, barras, espacios
+- ✅ El CIF cliente NO aparece en el Excel exportado (campo interno con prefijo _)
+- ✅ Tests cubren casos: CIF válido, inválido, con guiones, espacios, etc.
+- ✅ Todos los tests pasan (>90% coverage en módulo CIF)
+
+**Commits (en feature/validacion-cif-cliente)**:
+- `e9a0ef6` - Añadir validación de CIF del cliente para filtrar facturas
+
 ### Issue #13: Campos opcionales/condicionales 📋 PRÓXIMO
 - [x] Identificado como corner case prioritario
 - [ ] Definir requisitos específicos con usuario
@@ -561,7 +625,7 @@ pytest -m unit
 ## 📊 Métricas
 
 ### Testing
-- **Tests totales**: 200 (198 passing + 2 skipped, 0 warnings) ✅
+- **Tests totales**: 249 (247 passing + 2 skipped, 0 warnings) ✅
 - **Tests por módulo**:
   - test_sample.py: 8 tests ✅
   - test_pdf_extractor.py: 54 passing + 2 skipped ✅
@@ -575,20 +639,24 @@ pytest -m unit
   - test_multipagina_extraccion.py: 6 tests ✅
   - test_manejo_errores.py: 4 tests ✅
   - test_multipagina_pdf.py: 12 tests ✅
+  - test_cif.py: 25 tests ✅ **NUEVO**
+  - test_validacion_cif_cliente.py: 12 tests ✅ **NUEVO**
+  - test_campos_opcionales_auxiliares.py: 12 tests ✅
 - **Fixtures compartidas**: 13+
-- **Coverage actual**: **78% total** ⭐ (objetivo: 80%)
-  - main.py: 91% ✅
+- **Coverage actual**: **75% total** ⭐ (objetivo: 80%)
+  - main.py: 90% ✅
   - excel_exporter.py: 77% ✅
-  - pdf_extractor.py: 89% ✅
-  - editor_plantillas.py: 58% ✅
+  - pdf_extractor.py: 83% ✅
+  - editor_plantillas.py: 54% ✅
   - utils/data_cleaners.py: 95% ✅
-- **Módulos testeados**: 5/5 módulos principales ✅
+  - utils/cif.py: 94% ✅ **NUEVO**
+- **Módulos testeados**: 6/6 módulos principales ✅
 
 ### Código
 - **Archivos principales**: 5 archivos en `src/`
-- **Utilidades**: 5 archivos en `utils/` (data_cleaners.py)
+- **Utilidades**: 6 archivos en `utils/` (data_cleaners.py, cif.py) ⭐
 - **Scripts**: 3 archivos en `scripts/`
-- **Tests**: 12 archivos de test
+- **Tests**: 15 archivos de test ⭐
 - **Fixtures**: PDFs de prueba en `tests/fixtures/`
 
 ---
@@ -596,27 +664,30 @@ pytest -m unit
 ## 📈 Resumen de Progreso
 
 ### Fases Completadas
-- ✅ **FASE 1**: Testing y Calidad (79% coverage)
+- ✅ **FASE 1**: Testing y Calidad (75% coverage)
 - ✅ **FASE 2A**: Arquitectura - DataCleaners + Eliminación duplicados
 
-### Issues Completados (Total: 6)
+### Issues Completados (Total: 7)
 - ✅ Issue #1: Setup pytest
 - ✅ Issue #2: Tests pdf_extractor.py
 - ✅ Issue #3: Estandarizar nombres columnas Excel
 - ✅ Issue #8: Debate arquitectónico
 - ✅ Issue #9: Extraer DataCleaners
 - ✅ Issue #10: Eliminar duplicaciones
-- ✅ Issue #12: Soporte multipágina ⭐ **NUEVO**
+- ✅ Issue #12: Soporte multipágina
+- ✅ **Validación CIF del Cliente** ⭐ **NUEVO** (PR pendiente)
 
 ### En Progreso
 - 🔧 **FASE 3**: Corner Cases y Plantillas
+- 🔧 **PR Validación CIF Cliente**: En review
 
 ### Próximo Issue
+- 📋 Mergear PR validación CIF cliente
 - 📋 **Issue #13**: Campos opcionales/condicionales (definir requisitos)
 
 ---
 
-**Última acción**: Issue #12 mergeado a main - Soporte multipágina completado ✅
-**Próxima acción recomendada**: Definir requisitos Issue #13 (campos opcionales/condicionales)
+**Última acción**: Validación CIF Cliente completada y pushed - PR pendiente ✅
+**Próxima acción recomendada**: Crear PR para validación CIF cliente y mergear
 
 **Bloqueadores actuales**: Ninguno ✅
