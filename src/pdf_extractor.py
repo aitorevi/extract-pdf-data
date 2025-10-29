@@ -459,21 +459,29 @@ class PDFExtractor:
                 if campos_extraidos_exitosamente == 0:
                     raise Exception("No se pudo extraer ningún campo válido - posible error en plantilla o PDF no compatible")
 
-                # Extraer y validar CIF del cliente
-                print("  Verificando CIF del cliente...")
-                cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
+                # Extraer y validar CIF del cliente (solo si la plantilla lo tiene definido)
+                tiene_campo_cif_cliente = any(
+                    coord.get('nombre') == 'CIF_Cliente'
+                    for coord in plantilla.get('coordenadas_identificacion', [])
+                )
 
-                # Guardar CIF del cliente como campo interno (no se exporta)
-                datos_factura['_CIF_Cliente'] = cif_cliente if cif_cliente else ""
+                if tiene_campo_cif_cliente:
+                    print("  Verificando CIF del cliente...")
+                    cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
 
-                # Validar CIF del cliente
-                if not self._validar_cif_cliente(cif_cliente):
-                    # Marcar factura como rechazada por CIF incorrecto
-                    datos_factura['_CIF_Valido'] = False
-                    datos_factura['_Motivo_Rechazo'] = f"CIF del cliente no coincide con el corporativo ({self.CIF_CORPORATIVO})"
-                    print(f"  WARN: Factura rechazada - CIF cliente incorrecto")
-                else:
-                    datos_factura['_CIF_Valido'] = True
+                    # Guardar CIF del cliente como campo interno (no se exporta)
+                    datos_factura['_CIF_Cliente'] = cif_cliente if cif_cliente else ""
+
+                    # Validar CIF del cliente
+                    if not self._validar_cif_cliente(cif_cliente):
+                        # Marcar factura como rechazada por CIF incorrecto
+                        datos_factura['_CIF_Valido'] = False
+                        motivo = f"CIF del cliente no coincide con el corporativo ({self.CIF_CORPORATIVO})"
+                        datos_factura['_Motivo_Rechazo'] = motivo
+                        datos_factura['_Error'] = motivo  # Añadir campo _Error para que se filtre automáticamente
+                        print(f"  WARN: Factura rechazada - CIF cliente incorrecto")
+                    else:
+                        datos_factura['_CIF_Valido'] = True
 
         except Exception as e:
             print(f"Error procesando PDF {ruta_pdf}: {e}")
@@ -907,21 +915,29 @@ class PDFExtractor:
                     if campos_extraidos_exitosamente <= 1:  # Solo NumFactura no cuenta
                         print(f"    ADVERTENCIA: Pocos campos extraídos ({campos_extraidos_exitosamente})")
 
-                    # Extraer y validar CIF del cliente
-                    print("    Verificando CIF del cliente...")
-                    cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
+                    # Extraer y validar CIF del cliente (solo si la plantilla lo tiene definido)
+                    tiene_campo_cif_cliente = any(
+                        coord.get('nombre') == 'CIF_Cliente'
+                        for coord in plantilla.get('coordenadas_identificacion', [])
+                    )
 
-                    # Guardar CIF del cliente como campo interno (no se exporta)
-                    datos_factura['_CIF_Cliente'] = cif_cliente if cif_cliente else ""
+                    if tiene_campo_cif_cliente:
+                        print("    Verificando CIF del cliente...")
+                        cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
 
-                    # Validar CIF del cliente
-                    if not self._validar_cif_cliente(cif_cliente):
-                        # Marcar factura como rechazada por CIF incorrecto
-                        datos_factura['_CIF_Valido'] = False
-                        datos_factura['_Motivo_Rechazo'] = f"CIF del cliente no coincide con el corporativo ({self.CIF_CORPORATIVO})"
-                        print(f"    WARN: Factura rechazada - CIF cliente incorrecto")
-                    else:
-                        datos_factura['_CIF_Valido'] = True
+                        # Guardar CIF del cliente como campo interno (no se exporta)
+                        datos_factura['_CIF_Cliente'] = cif_cliente if cif_cliente else ""
+
+                        # Validar CIF del cliente
+                        if not self._validar_cif_cliente(cif_cliente):
+                            # Marcar factura como rechazada por CIF incorrecto
+                            datos_factura['_CIF_Valido'] = False
+                            motivo = f"CIF del cliente no coincide con el corporativo ({self.CIF_CORPORATIVO})"
+                            datos_factura['_Motivo_Rechazo'] = motivo
+                            datos_factura['_Error'] = motivo  # Añadir campo _Error para que se filtre automáticamente
+                            print(f"    WARN: Factura rechazada - CIF cliente incorrecto")
+                        else:
+                            datos_factura['_CIF_Valido'] = True
 
                     facturas_extraidas.append(datos_factura)
 
