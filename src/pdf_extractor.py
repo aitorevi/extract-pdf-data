@@ -262,36 +262,35 @@ class PDFExtractor:
 
     def _extraer_cif_cliente(self, pdf: Any, plantilla: Dict) -> Optional[str]:
         """
-        Extrae el CIF del cliente desde el PDF usando las coordenadas de identificación.
+        Extrae el CIF del cliente desde el PDF usando los campos de identificación.
 
         Args:
             pdf: Objeto PDF de pdfplumber
-            plantilla: Plantilla con coordenadas de identificación
+            plantilla: Plantilla con campos definidos
 
         Returns:
             CIF del cliente normalizado o None si no se encuentra
         """
         try:
-            coordenadas_id = plantilla.get('coordenadas_identificacion', [])
-
-            for coord in coordenadas_id:
-                nombre_campo = coord.get('nombre', '')
+            # Buscar el campo CIF_Cliente en los campos de la plantilla
+            for campo in plantilla.get('campos', []):
+                nombre_campo = campo.get('nombre', '')
 
                 # Buscar específicamente el campo CIF_Cliente
                 if nombre_campo == 'CIF_Cliente':
                     try:
-                        pagina_num = coord.get('pagina', 1)
+                        pagina_num = campo.get('pagina', 1)
                         if pagina_num > len(pdf.pages):
                             continue
 
                         page = pdf.pages[pagina_num - 1]
-                        x0 = coord.get('x0', 0)
-                        y0 = coord.get('y0', 0)
-                        x1 = coord.get('x1', 0)
-                        y1 = coord.get('y1', 0)
+                        coordenadas = campo.get('coordenadas', [])
+                        if len(coordenadas) != 4:
+                            continue
 
-                        bbox = (x0, y0, x1, y1)
-                        texto = page.within_bbox(bbox).extract_text()
+                        bbox = tuple(coordenadas)
+                        area_recortada = page.crop(bbox)
+                        texto = area_recortada.extract_text() or ""
 
                         if texto:
                             # Sanear el CIF usando el Value Object
@@ -461,8 +460,8 @@ class PDFExtractor:
 
                 # Extraer y validar CIF del cliente (solo si la plantilla lo tiene definido)
                 tiene_campo_cif_cliente = any(
-                    coord.get('nombre') == 'CIF_Cliente'
-                    for coord in plantilla.get('coordenadas_identificacion', [])
+                    campo.get('nombre') == 'CIF_Cliente'
+                    for campo in plantilla.get('campos', [])
                 )
 
                 if tiene_campo_cif_cliente:
@@ -917,8 +916,8 @@ class PDFExtractor:
 
                     # Extraer y validar CIF del cliente (solo si la plantilla lo tiene definido)
                     tiene_campo_cif_cliente = any(
-                        coord.get('nombre') == 'CIF_Cliente'
-                        for coord in plantilla.get('coordenadas_identificacion', [])
+                        campo.get('nombre') == 'CIF_Cliente'
+                        for campo in plantilla.get('campos', [])
                     )
 
                     if tiene_campo_cif_cliente:
