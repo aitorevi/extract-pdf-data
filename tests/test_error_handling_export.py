@@ -452,6 +452,12 @@ class TestCompleteWorkflow:
                     "es_identificacion": True
                 },
                 {
+                    "nombre": "CIF_Cliente",
+                    "coordenadas": [10, 35, 100, 45],
+                    "tipo": "texto",
+                    "es_identificacion": True
+                },
+                {
                     "nombre": "NumFactura",
                     "coordenadas": [10, 50, 100, 70],
                     "tipo": "texto",
@@ -510,6 +516,8 @@ class TestCompleteWorkflow:
                 else:
                     if bbox[1] < 35:  # Nombre_Identificacion
                         mock_result.extract_text.return_value = "Test Provider"
+                    elif bbox[1] < 48:  # CIF_Cliente
+                        mock_result.extract_text.return_value = "E98530876"  # CIF corporativo
                     elif bbox[1] < 75:  # NumFactura
                         mock_result.extract_text.return_value = "FAC-001"
                     elif bbox[1] < 105:  # FechaFactura

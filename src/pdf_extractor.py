@@ -458,13 +458,20 @@ class PDFExtractor:
                 if campos_extraidos_exitosamente == 0:
                     raise Exception("No se pudo extraer ningún campo válido - posible error en plantilla o PDF no compatible")
 
-                # Extraer y validar CIF del cliente (solo si la plantilla lo tiene definido)
+                # Validar que la plantilla tenga el campo CIF_Cliente definido
                 tiene_campo_cif_cliente = any(
                     campo.get('nombre') == 'CIF_Cliente'
                     for campo in plantilla.get('campos', [])
                 )
 
-                if tiene_campo_cif_cliente:
+                if not tiene_campo_cif_cliente:
+                    # Rechazar facturas de plantillas sin CIF_Cliente
+                    motivo = f"Plantilla '{proveedor_id}' no tiene campo CIF_Cliente - no se puede validar"
+                    datos_factura['_Error'] = motivo
+                    datos_factura['_Motivo_Rechazo'] = motivo
+                    print(f"  ERROR: {motivo}")
+                    print(f"  SOLUCION: Añade el campo CIF_Cliente a la plantilla usando el editor")
+                else:
                     print("  Verificando CIF del cliente...")
                     cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
 
@@ -914,13 +921,20 @@ class PDFExtractor:
                     if campos_extraidos_exitosamente <= 1:  # Solo NumFactura no cuenta
                         print(f"    ADVERTENCIA: Pocos campos extraídos ({campos_extraidos_exitosamente})")
 
-                    # Extraer y validar CIF del cliente (solo si la plantilla lo tiene definido)
+                    # Validar que la plantilla tenga el campo CIF_Cliente definido
                     tiene_campo_cif_cliente = any(
                         campo.get('nombre') == 'CIF_Cliente'
                         for campo in plantilla.get('campos', [])
                     )
 
-                    if tiene_campo_cif_cliente:
+                    if not tiene_campo_cif_cliente:
+                        # Rechazar facturas de plantillas sin CIF_Cliente
+                        motivo = f"Plantilla '{proveedor_id}' no tiene campo CIF_Cliente - no se puede validar"
+                        datos_factura['_Error'] = motivo
+                        datos_factura['_Motivo_Rechazo'] = motivo
+                        print(f"    ERROR: {motivo}")
+                        print(f"    SOLUCION: Añade el campo CIF_Cliente a la plantilla usando el editor")
+                    else:
                         print("    Verificando CIF del cliente...")
                         cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
 
