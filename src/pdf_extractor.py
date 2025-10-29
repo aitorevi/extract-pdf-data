@@ -11,6 +11,7 @@ import re
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from src.utils.data_cleaners import DataCleaner
+from src.utils.cif import CIF
 
 
 class PDFExtractor:
@@ -31,6 +32,9 @@ class PDFExtractor:
         'base': 'Base',
         'base-imponible': 'Base',
     }
+
+    # CIF corporativo para validar facturas del cliente
+    CIF_CORPORATIVO = "E98530876"
 
     def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas",
                  trimestre: str = "", año: str = ""):
@@ -252,6 +256,81 @@ class PDFExtractor:
 
         return similitud
 
+    def _extraer_cif_cliente(self, pdf: Any, plantilla: Dict) -> Optional[str]:
+        """
+        Extrae el CIF del cliente desde el PDF usando las coordenadas de identificación.
+
+        Args:
+            pdf: Objeto PDF de pdfplumber
+            plantilla: Plantilla con coordenadas de identificación
+
+        Returns:
+            CIF del cliente normalizado o None si no se encuentra
+        """
+        try:
+            coordenadas_id = plantilla.get('coordenadas_identificacion', [])
+
+            for coord in coordenadas_id:
+                nombre_campo = coord.get('nombre', '')
+
+                # Buscar específicamente el campo CIF_Cliente
+                if nombre_campo == 'CIF_Cliente':
+                    try:
+                        pagina_num = coord.get('pagina', 1)
+                        if pagina_num > len(pdf.pages):
+                            continue
+
+                        page = pdf.pages[pagina_num - 1]
+                        x0 = coord.get('x0', 0)
+                        y0 = coord.get('y0', 0)
+                        x1 = coord.get('x1', 0)
+                        y1 = coord.get('y1', 0)
+
+                        bbox = (x0, y0, x1, y1)
+                        texto = page.within_bbox(bbox).extract_text()
+
+                        if texto:
+                            # Sanear el CIF usando el Value Object
+                            cif = CIF(texto.strip())
+                            print(f"    CIF Cliente extraído: '{texto.strip()}' -> normalizado: '{cif.value}'")
+                            return cif.value
+
+                    except Exception as e:
+                        print(f"    Error extrayendo CIF_Cliente: {e}")
+
+        except Exception as e:
+            print(f"Error en _extraer_cif_cliente: {e}")
+
+        return None
+
+    def _validar_cif_cliente(self, cif_cliente_str: Optional[str]) -> bool:
+        """
+        Valida que el CIF del cliente coincida con el CIF corporativo.
+
+        Args:
+            cif_cliente_str: String con el CIF del cliente extraído del PDF
+
+        Returns:
+            True si el CIF coincide con el corporativo, False en caso contrario
+        """
+        if not cif_cliente_str:
+            print(f"    WARN: Factura sin CIF del cliente")
+            return False
+
+        cif_cliente = CIF(cif_cliente_str)
+        cif_corporativo = CIF(self.CIF_CORPORATIVO)
+
+        if not cif_cliente.is_valid():
+            print(f"    WARN: CIF del cliente inválido: '{cif_cliente_str}'")
+            return False
+
+        if cif_cliente == cif_corporativo:
+            print(f"    OK: CIF del cliente coincide: {cif_cliente.value}")
+            return True
+        else:
+            print(f"    ERROR: CIF del cliente NO coincide. Extraído: '{cif_cliente.value}' vs Esperado: '{cif_corporativo.value}'")
+            return False
+
     def _procesar_campos_auxiliares(self, datos_extraidos: dict) -> dict:
         """
         Procesa campos auxiliares y aplica cálculos automáticos.
@@ -375,6 +454,22 @@ class PDFExtractor:
                 # Validar que se extrajeron datos útiles
                 if campos_extraidos_exitosamente == 0:
                     raise Exception("No se pudo extraer ningún campo válido - posible error en plantilla o PDF no compatible")
+
+                # Extraer y validar CIF del cliente
+                print("  Verificando CIF del cliente...")
+                cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
+
+                # Guardar CIF del cliente como campo interno (no se exporta)
+                datos_factura['_CIF_Cliente'] = cif_cliente if cif_cliente else ""
+
+                # Validar CIF del cliente
+                if not self._validar_cif_cliente(cif_cliente):
+                    # Marcar factura como rechazada por CIF incorrecto
+                    datos_factura['_CIF_Valido'] = False
+                    datos_factura['_Motivo_Rechazo'] = f"CIF del cliente no coincide con el corporativo ({self.CIF_CORPORATIVO})"
+                    print(f"  WARN: Factura rechazada - CIF cliente incorrecto")
+                else:
+                    datos_factura['_CIF_Valido'] = True
 
         except Exception as e:
             print(f"Error procesando PDF {ruta_pdf}: {e}")
@@ -807,6 +902,22 @@ class PDFExtractor:
                     # Validar que se extrajeron datos útiles (además del NumFactura)
                     if campos_extraidos_exitosamente <= 1:  # Solo NumFactura no cuenta
                         print(f"    ADVERTENCIA: Pocos campos extraídos ({campos_extraidos_exitosamente})")
+
+                    # Extraer y validar CIF del cliente
+                    print("    Verificando CIF del cliente...")
+                    cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
+
+                    # Guardar CIF del cliente como campo interno (no se exporta)
+                    datos_factura['_CIF_Cliente'] = cif_cliente if cif_cliente else ""
+
+                    # Validar CIF del cliente
+                    if not self._validar_cif_cliente(cif_cliente):
+                        # Marcar factura como rechazada por CIF incorrecto
+                        datos_factura['_CIF_Valido'] = False
+                        datos_factura['_Motivo_Rechazo'] = f"CIF del cliente no coincide con el corporativo ({self.CIF_CORPORATIVO})"
+                        print(f"    WARN: Factura rechazada - CIF cliente incorrecto")
+                    else:
+                        datos_factura['_CIF_Valido'] = True
 
                     facturas_extraidas.append(datos_factura)
 

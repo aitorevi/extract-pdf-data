@@ -18,6 +18,7 @@ from PIL import ImageTk
 CAMPOS_IDENTIFICACION = [
     {"nombre": "CIF_Identificacion", "tipo": "texto", "descripcion": "CIF del proveedor para identificación"},
     {"nombre": "Nombre_Identificacion", "tipo": "texto", "descripcion": "Nombre completo del proveedor para identificación"},
+    {"nombre": "CIF_Cliente", "tipo": "texto", "descripcion": "CIF del cliente (destinatario de la factura) - Se valida contra E98530876"},
 ]
 
 # CAMPOS DE DATOS - Campos a capturar y exportar al Excel

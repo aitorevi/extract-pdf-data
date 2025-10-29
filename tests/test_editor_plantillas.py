@@ -22,11 +22,12 @@ class TestCamposConstantes:
 
     def test_campos_identificacion_definidos(self):
         """Test que CAMPOS_IDENTIFICACION tiene los campos correctos."""
-        assert len(CAMPOS_IDENTIFICACION) == 2
+        assert len(CAMPOS_IDENTIFICACION) == 3
 
         nombres = [c['nombre'] for c in CAMPOS_IDENTIFICACION]
         assert 'CIF_Identificacion' in nombres
         assert 'Nombre_Identificacion' in nombres
+        assert 'CIF_Cliente' in nombres
 
         # Verificar estructura
         for campo in CAMPOS_IDENTIFICACION:
