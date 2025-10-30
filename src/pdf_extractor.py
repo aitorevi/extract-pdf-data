@@ -36,6 +36,99 @@ class PDFExtractor:
     # CIF corporativo para validar facturas del cliente
     CIF_CORPORATIVO = "E98530876"
 
+    @staticmethod
+    def calcular_trimestre_desde_fecha(fecha: datetime) -> int:
+        """
+        Calcula el trimestre (1-4) a partir de una fecha.
+
+        Args:
+            fecha (datetime): Fecha a procesar
+
+        Returns:
+            int: Número de trimestre (1, 2, 3 o 4)
+        """
+        mes = fecha.month
+        if mes <= 3:
+            return 1
+        elif mes <= 6:
+            return 2
+        elif mes <= 9:
+            return 3
+        else:
+            return 4
+
+    @staticmethod
+    def parsear_trimestre(trimestre_str: str) -> int:
+        """
+        Parsea un string de trimestre a número entero.
+
+        Args:
+            trimestre_str (str): String como "1T", "2T" o "1", "2"
+
+        Returns:
+            int: Número de trimestre (1, 2, 3 o 4)
+        """
+        # Eliminar la "T" si existe
+        trimestre_str = trimestre_str.upper().replace("T", "")
+        return int(trimestre_str)
+
+    @staticmethod
+    def formatear_trimestre(numero: int) -> str:
+        """
+        Formatea un número de trimestre al formato estándar con T.
+
+        Args:
+            numero (int): Número de trimestre (1, 2, 3 o 4)
+
+        Returns:
+            str: Trimestre formateado (ej: "1T", "2T")
+        """
+        return f"{numero}T"
+
+    @staticmethod
+    def determinar_trimestre_factura(fecha_factura: datetime,
+                                     trimestre_usuario: int,
+                                     año_usuario: int) -> Optional[tuple]:
+        """
+        Determina el trimestre y año que debe asignarse a una factura según la lógica de negocio.
+
+        Lógica:
+        - Si la factura es del mismo año y su trimestre es <= al trimestre introducido:
+          se marca con el trimestre introducido
+        - Si la factura es del mismo año y su trimestre es > al trimestre introducido:
+          se marca con su propio trimestre
+        - Caso especial T1: Si el usuario introduce T1 de año X, las facturas del T4 del año X-1
+          se marcan como T1 del año X
+        - Otras facturas de años diferentes se excluyen (retorna None)
+
+        Args:
+            fecha_factura (datetime): Fecha de la factura
+            trimestre_usuario (int): Trimestre introducido por el usuario (1-4)
+            año_usuario (int): Año introducido por el usuario
+
+        Returns:
+            Optional[tuple]: (trimestre, año) o None si la factura debe excluirse
+        """
+        año_factura = fecha_factura.year
+        trimestre_factura = PDFExtractor.calcular_trimestre_desde_fecha(fecha_factura)
+
+        # Caso 1: Factura del mismo año que el introducido
+        if año_factura == año_usuario:
+            # Si el trimestre de la factura es <= al introducido, usar el introducido
+            if trimestre_factura <= trimestre_usuario:
+                return (trimestre_usuario, año_usuario)
+            # Si el trimestre de la factura es >, usar su propio trimestre
+            else:
+                return (trimestre_factura, año_usuario)
+
+        # Caso 2: Caso especial T1 - incluir T4 del año anterior
+        elif trimestre_usuario == 1 and año_factura == (año_usuario - 1) and trimestre_factura == 4:
+            return (1, año_usuario)
+
+        # Caso 3: Facturas de otros años/trimestres se excluyen
+        else:
+            return None
+
     def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas",
                  trimestre: str = "", año: str = ""):
         """
@@ -372,6 +465,100 @@ class PDFExtractor:
 
         return datos_extraidos
 
+    def _aplicar_logica_trimestres(self, datos_factura: Dict[str, Any]) -> None:
+        """
+        Aplica la lógica de marcado de trimestres basándose en la fecha de factura.
+
+        Modifica el diccionario datos_factura in-place:
+        - Actualiza campos Trimestre y Año según la lógica de negocio
+        - Si la factura debe excluirse, añade campo _Error
+
+        Args:
+            datos_factura (Dict[str, Any]): Diccionario con los datos de la factura
+        """
+        try:
+            # Parsear el trimestre del usuario (de "1T" a 1)
+            trimestre_usuario = self.parsear_trimestre(self.trimestre)
+            año_usuario = int(self.año)
+
+            # Obtener la fecha de factura
+            fecha_factura_str = datos_factura.get('FechaFactura', '')
+            if not fecha_factura_str or fecha_factura_str == "ERROR" or fecha_factura_str == "":
+                print(f"  WARN: No se pudo determinar trimestre - FechaFactura no válida")
+                return
+
+            # Parsear la fecha de factura a datetime
+            fecha_factura = self._parsear_fecha_a_datetime(fecha_factura_str, año_usuario)
+            if not fecha_factura:
+                print(f"  WARN: No se pudo parsear FechaFactura: {fecha_factura_str}")
+                return
+
+            # Determinar el trimestre y año que debe asignarse
+            resultado = self.determinar_trimestre_factura(fecha_factura, trimestre_usuario, año_usuario)
+
+            if resultado is None:
+                # La factura debe excluirse (año diferente y no cumple caso especial T1)
+                motivo = f"Factura de {fecha_factura.year} excluida - no corresponde al período solicitado ({self.trimestre} {self.año})"
+                datos_factura['_Error'] = motivo
+                datos_factura['_Motivo_Rechazo'] = motivo
+                print(f"  WARN: {motivo}")
+            else:
+                # Actualizar trimestre y año según la lógica
+                trimestre_asignado, año_asignado = resultado
+                datos_factura['Trimestre'] = self.formatear_trimestre(trimestre_asignado)
+                datos_factura['Año'] = str(año_asignado)
+                print(f"  Trimestre asignado: {datos_factura['Trimestre']} {datos_factura['Año']}")
+
+        except Exception as e:
+            print(f"  Error aplicando lógica de trimestres: {e}")
+
+    def _parsear_fecha_a_datetime(self, fecha_str: str, año_default: int) -> Optional[datetime]:
+        """
+        Parsea una fecha en formato string a datetime.
+
+        Soporta formatos como: "15/01/2025", "15/01", "15-01-2025", etc.
+        Si no tiene año, usa el año_default.
+
+        Args:
+            fecha_str (str): Fecha en formato string
+            año_default (int): Año a usar si la fecha no lo tiene
+
+        Returns:
+            Optional[datetime]: Fecha parseada o None si hay error
+        """
+        if not fecha_str:
+            return None
+
+        # Limpiar la fecha
+        fecha_str = fecha_str.strip()
+
+        # Intentar varios formatos
+        formatos = [
+            '%d/%m/%Y',
+            '%d-%m-%Y',
+            '%d.%m.%Y',
+            '%d/%m/%y',
+            '%d-%m-%y',
+            '%d/%m',  # Sin año
+            '%d-%m',  # Sin año
+        ]
+
+        for formato in formatos:
+            try:
+                fecha = datetime.strptime(fecha_str, formato)
+                # Si el formato no incluye año, usar el año default
+                if formato in ['%d/%m', '%d-%m']:
+                    fecha = fecha.replace(year=año_default)
+                # Si el año es de 2 dígitos y es > 50, asumir 19xx, sino 20xx
+                elif formato in ['%d/%m/%y', '%d-%m-%y']:
+                    if fecha.year > 2050:
+                        fecha = fecha.replace(year=fecha.year - 100)
+                return fecha
+            except ValueError:
+                continue
+
+        return None
+
     def extraer_datos_factura(self, ruta_pdf: str, proveedor_id: str) -> Dict[str, Any]:
         """
         Extrae datos de una factura usando su plantilla correspondiente.
@@ -488,6 +675,10 @@ class PDFExtractor:
                         print(f"  WARN: Factura rechazada - CIF cliente incorrecto")
                     else:
                         datos_factura['_CIF_Valido'] = True
+
+                # Aplicar lógica de trimestres basada en fecha de factura
+                if self.trimestre and self.año:
+                    self._aplicar_logica_trimestres(datos_factura)
 
         except Exception as e:
             print(f"Error procesando PDF {ruta_pdf}: {e}")
@@ -951,6 +1142,10 @@ class PDFExtractor:
                             print(f"    WARN: Factura rechazada - CIF cliente incorrecto")
                         else:
                             datos_factura['_CIF_Valido'] = True
+
+                    # Aplicar lógica de trimestres basada en fecha de factura
+                    if self.trimestre and self.año:
+                        self._aplicar_logica_trimestres(datos_factura)
 
                     facturas_extraidas.append(datos_factura)
 
