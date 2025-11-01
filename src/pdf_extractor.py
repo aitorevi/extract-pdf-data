@@ -130,7 +130,7 @@ class PDFExtractor:
             return None
 
     def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas",
-                 trimestre: str = "", año: str = ""):
+                 trimestre: str = "", año: str = "", organizar_archivos: bool = True):
         """
         Inicializa el extractor de PDF.
 
@@ -139,6 +139,7 @@ class PDFExtractor:
             directorio_plantillas (str): Directorio donde están las plantillas JSON
             trimestre (str): Trimestre fiscal (Q1, Q2, Q3, Q4)
             año (str): Año fiscal
+            organizar_archivos (bool): Si True, organiza PDFs automáticamente después de procesar
         """
         self.directorio_facturas = directorio_facturas
         self.directorio_plantillas = directorio_plantillas
@@ -147,6 +148,14 @@ class PDFExtractor:
         self.errores = []  # Lista separada para registrar errores de extracción
         self.trimestre = trimestre
         self.año = año
+        self.organizar_archivos = organizar_archivos
+
+        # Inicializar organizador de archivos si está habilitado
+        if self.organizar_archivos:
+            from src.file_organizer import PDFOrganizer
+            self.organizador = PDFOrganizer(directorio_base=directorio_facturas)
+        else:
+            self.organizador = None
 
     def cargar_plantillas(self) -> bool:
         """
@@ -789,6 +798,13 @@ class PDFExtractor:
                         resultados.append(datos)
 
                     print(f"OK Procesado exitosamente ({len(lista_datos)} factura(s))")
+
+                    # Organizar archivo PDF si está habilitado
+                    if self.organizador:
+                        # Usar los datos de la primera factura (en caso de múltiples facturas en un PDF)
+                        # Si hay error en alguna factura, usar None
+                        datos_para_organizar = lista_datos[0] if lista_datos else None
+                        self.organizador.organizar_pdf(ruta_completa, datos_para_organizar)
                 except Exception as e:
                     print(f"ERROR procesando: {e}")
                     # Registrar en log de errores, NO en resultados
@@ -800,6 +816,10 @@ class PDFExtractor:
                         'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     self.errores.append(error_registro)
+
+                    # Organizar PDF con error si está habilitado
+                    if self.organizador:
+                        self.organizador.organizar_pdf(ruta_completa, None)
             else:
                 print(f"ERROR Proveedor no identificado")
                 # Registrar en log de errores, NO en resultados
@@ -811,6 +831,10 @@ class PDFExtractor:
                     'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
                 self.errores.append(error_registro)
+
+                # Organizar PDF sin proveedor identificado si está habilitado
+                if self.organizador:
+                    self.organizador.organizar_pdf(ruta_completa, None)
 
         self.resultados = resultados
         print(f"\n=== PROCESAMIENTO COMPLETADO ===")
