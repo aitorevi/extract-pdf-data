@@ -86,13 +86,17 @@ class PDFExtractor:
         return f"{numero}T"
 
     @staticmethod
-    def determinar_trimestre_factura(fecha_factura: datetime,
-                                     trimestre_usuario: int,
-                                     año_usuario: int) -> Optional[tuple]:
+    def determinar_trimestre_para_exportacion_excel(fecha_factura: datetime,
+                                                     trimestre_usuario: int,
+                                                     año_usuario: int) -> Optional[tuple]:
         """
-        Determina el trimestre y año que debe asignarse a una factura según la lógica de negocio.
+        Calcula el trimestre y año que debe aparecer en el Excel según lógica de negocio compleja.
 
-        Lógica:
+        IMPORTANTE: Esta función implementa reglas de negocio específicas para la exportación
+        a Excel y NO debe usarse para cálculos de índices o detección de duplicados.
+        Para esos casos, usar calcular_trimestre_desde_fecha() que calcula el trimestre real.
+
+        Lógica de negocio (para Excel):
         - Si la factura es del mismo año y su trimestre es <= al trimestre introducido:
           se marca con el trimestre introducido
         - Si la factura es del mismo año y su trimestre es > al trimestre introducido:
@@ -474,12 +478,15 @@ class PDFExtractor:
 
         return datos_extraidos
 
-    def _aplicar_logica_trimestres(self, datos_factura: Dict[str, Any]) -> None:
+    def _aplicar_reglas_asignacion_trimestre_excel(self, datos_factura: Dict[str, Any]) -> None:
         """
-        Aplica la lógica de marcado de trimestres basándose en la fecha de factura.
+        Aplica las reglas de negocio para asignar trimestre/año en la exportación Excel.
+
+        IMPORTANTE: Esta función modifica Trimestre y Año SOLO para el Excel según
+        reglas de negocio complejas. NO afecta a índices ni organización de archivos.
 
         Modifica el diccionario datos_factura in-place:
-        - Actualiza campos Trimestre y Año según la lógica de negocio
+        - Actualiza campos Trimestre y Año según la lógica de negocio para Excel
         - Si la factura debe excluirse, añade campo _Error
 
         Args:
@@ -502,8 +509,8 @@ class PDFExtractor:
                 print(f"  WARN: No se pudo parsear FechaFactura: {fecha_factura_str}")
                 return
 
-            # Determinar el trimestre y año que debe asignarse
-            resultado = self.determinar_trimestre_factura(fecha_factura, trimestre_usuario, año_usuario)
+            # Determinar el trimestre y año que debe asignarse (con lógica de negocio para Excel)
+            resultado = self.determinar_trimestre_para_exportacion_excel(fecha_factura, trimestre_usuario, año_usuario)
 
             if resultado is None:
                 # La factura debe excluirse (año diferente y no cumple caso especial T1)
@@ -683,9 +690,9 @@ class PDFExtractor:
                     print(f"  INFO: Plantilla sin campo CIF_Cliente - omitiendo validación")
                     datos_factura['_CIF_Valido'] = None
 
-                # Aplicar lógica de trimestres basada en fecha de factura
+                # Aplicar reglas de asignación de trimestre para Excel
                 if self.trimestre and self.año:
-                    self._aplicar_logica_trimestres(datos_factura)
+                    self._aplicar_reglas_asignacion_trimestre_excel(datos_factura)
 
         except Exception as e:
             print(f"Error procesando PDF {ruta_pdf}: {e}")
@@ -1163,9 +1170,9 @@ class PDFExtractor:
                         print(f"    INFO: Plantilla sin campo CIF_Cliente - omitiendo validación")
                         datos_factura['_CIF_Valido'] = None
 
-                    # Aplicar lógica de trimestres basada en fecha de factura
+                    # Aplicar reglas de asignación de trimestre para Excel
                     if self.trimestre and self.año:
-                        self._aplicar_logica_trimestres(datos_factura)
+                        self._aplicar_reglas_asignacion_trimestre_excel(datos_factura)
 
                     facturas_extraidas.append(datos_factura)
 

@@ -169,6 +169,60 @@ class PDFOrganizer:
 
         return fecha
 
+    def calcular_trimestre_real_para_indices(self, fecha_factura: str) -> Tuple[str, str]:
+        """
+        Calcula el trimestre y año REALES basándose ÚNICAMENTE en la fecha de factura.
+
+        IMPORTANTE: Esta función calcula el trimestre cronológico real sin aplicar
+        ninguna regla de negocio. Se usa para:
+        - Generar índices de facturas por trimestre
+        - Detectar duplicados
+        - Organizar archivos por trimestre real
+
+        NO usar esta función para el Excel, que tiene su propia lógica de negocio
+        (ver PDFExtractor.determinar_trimestre_para_exportacion_excel).
+
+        Args:
+            fecha_factura: Fecha en formato DD/MM/YYYY o YYYY-MM-DD
+
+        Returns:
+            Tupla (trimestre, año) - ej: ("1T", "2025")
+            - Enero-Marzo → 1T
+            - Abril-Junio → 2T
+            - Julio-Septiembre → 3T
+            - Octubre-Diciembre → 4T
+        """
+        try:
+            # Normalizar fecha a formato YYYY-MM-DD
+            fecha_normalizada = self._normalizar_fecha(fecha_factura)
+
+            if not fecha_normalizada or fecha_normalizada == "":
+                return ("", "")
+
+            # Extraer año y mes
+            parts = fecha_normalizada.split('-')
+            if len(parts) != 3:
+                return ("", "")
+
+            año = parts[0]
+            mes = int(parts[1])
+
+            # Calcular trimestre basado en el mes
+            if mes <= 3:
+                trimestre = "1T"
+            elif mes <= 6:
+                trimestre = "2T"
+            elif mes <= 9:
+                trimestre = "3T"
+            else:
+                trimestre = "4T"
+
+            return (trimestre, año)
+
+        except Exception as e:
+            print(f"⚠️ ADVERTENCIA: Error al calcular trimestre desde fecha {fecha_factura}: {e}")
+            return ("", "")
+
     def agregar_al_indice(self, año: int, trimestre: str, info_factura: Dict):
         """
         Agrega una nueva factura al índice del trimestre.
@@ -334,20 +388,33 @@ class PDFOrganizer:
         cif_proveedor = resultado.get('CIF', '')
         fecha_factura = resultado.get('FechaFactura', '')
         num_factura = resultado.get('NumFactura', '')
-        trimestre = resultado.get('Trimestre', '')
-        año = resultado.get('Año', '')
         nombre_proveedor = resultado.get('_Proveedor_Nombre', resultado.get('_NombreProveedor', 'Desconocido'))
+
+        # IMPORTANTE: Para los índices, calcular trimestre y año REALES basándose SOLO en la fecha de factura
+        # (sin aplicar la lógica de negocio que se usa para el Excel)
+        trimestre_indice, año_indice = self.calcular_trimestre_real_para_indices(fecha_factura)
+
+        # Si no se pudo calcular, usar valores del resultado como fallback
+        if not trimestre_indice or not año_indice:
+            trimestre_indice = resultado.get('Trimestre', '')
+            año_indice = resultado.get('Año', '')
 
         # Normalizar nombre del proveedor para carpeta (sin espacios ni caracteres raros)
         nombre_proveedor_carpeta = self._normalizar_nombre_proveedor(nombre_proveedor)
 
-        # Verificar si es duplicado
+        # Verificar si es duplicado usando trimestre/año calculados desde fecha
+        try:
+            año_indice_int = int(año_indice) if año_indice else 0
+        except ValueError:
+            año_indice_int = 0
+
         duplicado = self.es_duplicado(cif_proveedor, fecha_factura, num_factura,
-                                     int(año), trimestre)
+                                     año_indice_int, trimestre_indice)
 
         if duplicado:
             # Es un duplicado real - mover a carpeta de duplicados
-            destino_dir = self.directorio_duplicados / str(año) / trimestre
+            # Usar trimestre/año del índice para mantener consistencia
+            destino_dir = self.directorio_duplicados / str(año_indice) / trimestre_indice
             destino = destino_dir / nombre_archivo
 
             if self.mover_pdf(str(pdf_path), str(destino)):
@@ -362,11 +429,12 @@ class PDFOrganizer:
             # Extraer mes de la fecha
             mes = self._extraer_mes_de_fecha(fecha_factura)
 
-            destino_dir = self.directorio_procesadas / str(año) / mes / nombre_proveedor_carpeta
+            # Usar año del índice para la organización de archivos
+            destino_dir = self.directorio_procesadas / str(año_indice) / mes / nombre_proveedor_carpeta
             destino = destino_dir / nombre_archivo
 
             if self.mover_pdf(str(pdf_path), str(destino)):
-                # Agregar al índice
+                # Agregar al índice usando trimestre/año calculados desde fecha (sin lógica de negocio)
                 info_factura = {
                     "cif_proveedor": cif_proveedor,
                     "fecha_factura": self._normalizar_fecha(fecha_factura),
@@ -376,7 +444,7 @@ class PDFOrganizer:
                     "fecha_procesamiento": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     "hash_md5": self.calcular_hash_md5(str(destino))
                 }
-                self.agregar_al_indice(int(año), trimestre, info_factura)
+                self.agregar_al_indice(año_indice_int, trimestre_indice, info_factura)
 
                 detalles = f"Proveedor: {nombre_proveedor}, CIF: {cif_proveedor}"
                 self.registrar_operacion("EXITO", nombre_archivo,
