@@ -336,7 +336,7 @@ class PDFOrganizer:
         num_factura = resultado.get('NumFactura', '')
         trimestre = resultado.get('Trimestre', '')
         año = resultado.get('Año', '')
-        nombre_proveedor = resultado.get('_NombreProveedor', 'Desconocido')
+        nombre_proveedor = resultado.get('_Proveedor_Nombre', resultado.get('_NombreProveedor', 'Desconocido'))
 
         # Normalizar nombre del proveedor para carpeta (sin espacios ni caracteres raros)
         nombre_proveedor_carpeta = self._normalizar_nombre_proveedor(nombre_proveedor)

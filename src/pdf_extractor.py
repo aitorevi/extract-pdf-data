@@ -660,14 +660,8 @@ class PDFExtractor:
                     for campo in plantilla.get('campos', [])
                 )
 
-                if not tiene_campo_cif_cliente:
-                    # Rechazar facturas de plantillas sin CIF_Cliente
-                    motivo = f"Plantilla '{proveedor_id}' no tiene campo CIF_Cliente - no se puede validar"
-                    datos_factura['_Error'] = motivo
-                    datos_factura['_Motivo_Rechazo'] = motivo
-                    print(f"  ERROR: {motivo}")
-                    print(f"  SOLUCION: Añade el campo CIF_Cliente a la plantilla usando el editor")
-                else:
+                if tiene_campo_cif_cliente:
+                    # Solo validar si la plantilla tiene el campo CIF_Cliente
                     print("  Verificando CIF del cliente...")
                     cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
 
@@ -684,6 +678,10 @@ class PDFExtractor:
                         print(f"  WARN: Factura rechazada - CIF cliente incorrecto")
                     else:
                         datos_factura['_CIF_Valido'] = True
+                else:
+                    # Plantilla sin CIF_Cliente: permitir procesamiento sin validación
+                    print(f"  INFO: Plantilla sin campo CIF_Cliente - omitiendo validación")
+                    datos_factura['_CIF_Valido'] = None
 
                 # Aplicar lógica de trimestres basada en fecha de factura
                 if self.trimestre and self.año:
@@ -1142,14 +1140,8 @@ class PDFExtractor:
                         for campo in plantilla.get('campos', [])
                     )
 
-                    if not tiene_campo_cif_cliente:
-                        # Rechazar facturas de plantillas sin CIF_Cliente
-                        motivo = f"Plantilla '{proveedor_id}' no tiene campo CIF_Cliente - no se puede validar"
-                        datos_factura['_Error'] = motivo
-                        datos_factura['_Motivo_Rechazo'] = motivo
-                        print(f"    ERROR: {motivo}")
-                        print(f"    SOLUCION: Añade el campo CIF_Cliente a la plantilla usando el editor")
-                    else:
+                    if tiene_campo_cif_cliente:
+                        # Solo validar si la plantilla tiene el campo CIF_Cliente
                         print("    Verificando CIF del cliente...")
                         cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
 
@@ -1166,6 +1158,10 @@ class PDFExtractor:
                             print(f"    WARN: Factura rechazada - CIF cliente incorrecto")
                         else:
                             datos_factura['_CIF_Valido'] = True
+                    else:
+                        # Plantilla sin CIF_Cliente: permitir procesamiento sin validación
+                        print(f"    INFO: Plantilla sin campo CIF_Cliente - omitiendo validación")
+                        datos_factura['_CIF_Valido'] = None
 
                     # Aplicar lógica de trimestres basada en fecha de factura
                     if self.trimestre and self.año:
