@@ -113,6 +113,10 @@ class FacturaExtractorApp:
         # Inicializar extractor con datos fiscales
         self.pdf_extractor = PDFExtractor(trimestre=trimestre, año=año)
 
+        # Informar sobre organización automática
+        print("\n📂 Organización automática de PDFs: ACTIVADA")
+        print("   Los PDFs se organizarán automáticamente después del procesamiento")
+
         # Cargar plantillas
         print("\nCargando plantillas...")
         if not self.pdf_extractor.cargar_plantillas():
