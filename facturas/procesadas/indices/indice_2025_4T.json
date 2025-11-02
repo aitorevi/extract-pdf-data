@@ -1,0 +1,24 @@
+{
+  "trimestre": "4T",
+  "año": 2025,
+  "facturas": [
+    {
+      "cif_proveedor": "B05529656",
+      "fecha_factura": "2025-10-17",
+      "num_factura": "90/22335",
+      "nombre_archivo": "HBS_Facturas-232106.pdf",
+      "ruta_completa": "facturas/procesadas/2025/10/HomeBed_Spain_SL/HBS_Facturas-232106.pdf",
+      "fecha_procesamiento": "2025-11-01 17:50:56",
+      "hash_md5": "ea865904b04e106ff47b7c2f55b1dc1c"
+    },
+    {
+      "cif_proveedor": "B96995196",
+      "fecha_factura": "2025-10-15",
+      "num_factura": "202501006358",
+      "nombre_archivo": "Factura_202501006358.pdf",
+      "ruta_completa": "facturas/procesadas/2025/10/Innovaciones_Textiles_Pla_SL/Factura_202501006358.pdf",
+      "fecha_procesamiento": "2025-11-01 21:19:37",
+      "hash_md5": "004f68760da72c903389ec0e88e3bbe0"
+    }
+  ]
+}
