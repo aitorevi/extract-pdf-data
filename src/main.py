@@ -29,16 +29,20 @@ class FacturaExtractorApp:
         """
         Verifica que la estructura del proyecto esté correcta.
 
+        Nueva estructura (desde v2.0):
+        - documentos/por_procesar/  ← PDFs pendientes
+        - plantillas/               ← Plantillas JSON
+
         Returns:
             bool: True si la estructura es correcta
         """
-        directorios_requeridos = ['facturas', 'plantillas', 'resultados']
+        directorios_requeridos = ['documentos/por_procesar', 'plantillas']
         problemas = []
 
         for directorio in directorios_requeridos:
             if not os.path.exists(directorio):
                 try:
-                    os.makedirs(directorio)
+                    os.makedirs(directorio, exist_ok=True)
                     print(f"OK Directorio creado: {directorio}/")
                 except Exception as e:
                     problemas.append(f"No se pudo crear {directorio}/: {e}")
@@ -51,13 +55,13 @@ class FacturaExtractorApp:
         else:
             problemas.append("Directorio plantillas/ no existe")
 
-        # Verificar facturas
-        if os.path.exists('facturas'):
-            facturas = [f for f in os.listdir('facturas') if f.lower().endswith('.pdf')]
+        # Verificar PDFs pendientes
+        if os.path.exists('documentos/por_procesar'):
+            facturas = [f for f in os.listdir('documentos/por_procesar') if f.lower().endswith('.pdf')]
             if not facturas:
-                print("WARN No se encontraron archivos PDF en facturas/")
+                print("WARN No se encontraron archivos PDF en documentos/por_procesar/")
         else:
-            problemas.append("Directorio facturas/ no existe")
+            problemas.append("Directorio documentos/por_procesar/ no existe")
 
         if problemas:
             print("ERROR Problemas encontrados:")
@@ -129,7 +133,7 @@ class FacturaExtractorApp:
         resultados = self.pdf_extractor.procesar_directorio_facturas()
 
         if not resultados:
-            print("ERROR No se procesaron facturas. Verifica que haya archivos PDF en facturas/")
+            print("ERROR No se procesaron facturas. Verifica que haya archivos PDF en documentos/por_procesar/")
             return False
 
         # Mostrar estadísticas
@@ -177,7 +181,12 @@ class FacturaExtractorApp:
         print(f"\n=== EXPORTANDO RESULTADOS ===")
 
         try:
-            self.exporter = ExcelExporter(resultados, errores or [])
+            # Obtener trimestre y año del extractor
+            trimestre = self.pdf_extractor.trimestre if self.pdf_extractor else ""
+            año = self.pdf_extractor.año if self.pdf_extractor else ""
+
+            self.exporter = ExcelExporter(resultados, errores or [],
+                                         trimestre=trimestre, año=año)
 
             archivos_generados = {}
 
@@ -212,7 +221,7 @@ class FacturaExtractorApp:
         print()
         print("1. PREPARAR EL ENTORNO:")
         print("   - Instala las dependencias: pip install -r requirements.txt")
-        print("   - Coloca archivos PDF en la carpeta 'facturas/'")
+        print("   - Coloca archivos PDF en la carpeta 'documentos/por_procesar/'")
         print()
         print("2. CREAR PLANTILLAS (primera vez):")
         print("   python main.py coordenadas")
@@ -224,18 +233,25 @@ class FacturaExtractorApp:
         print("3. PROCESAR FACTURAS:")
         print("   python main.py procesar")
         print("   - Extrae datos de todos los PDFs")
-        print("   - Genera archivos Excel, CSV y JSON")
+        print("   - Organiza PDFs procesados automáticamente")
+        print("   - Genera reportes Excel por trimestre")
         print()
         print("4. OPCIONES AVANZADAS:")
         print("   python main.py procesar --formato excel  # Solo Excel")
         print("   python main.py procesar --formato csv    # Solo CSV")
         print("   python main.py procesar --no-auto-export # Sin exportar")
         print()
-        print("5. ESTRUCTURA DE ARCHIVOS:")
-        print("   facturas/       - PDFs a procesar")
-        print("   plantillas/     - Plantillas JSON por proveedor")
-        print("   resultados/     - Archivos de salida")
-        print("   imagenes_muestra/ - Imágenes de referencia")
+        print("5. ESTRUCTURA DE ARCHIVOS (v2.0):")
+        print("   documentos/")
+        print("     ├── por_procesar/         - PDFs pendientes")
+        print("     ├── procesados/")
+        print("     │   ├── facturas/         - PDFs organizados exitosamente")
+        print("     │   ├── indices/          - Índices por trimestre (JSON)")
+        print("     │   ├── duplicados/       - Facturas duplicadas")
+        print("     │   └── errores/          - PDFs con problemas")
+        print("     └── reportes/")
+        print("         └── YYYY/XT/          - Excel organizados por trimestre")
+        print("   plantillas/                 - Plantillas JSON")
         print()
 
     def ejecutar_cli(self):

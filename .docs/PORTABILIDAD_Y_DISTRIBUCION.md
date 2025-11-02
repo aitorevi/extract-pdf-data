@@ -474,6 +474,7 @@ Empaqueta toda la aplicación en un contenedor Docker con interfaz gráfica.
 ### Implementación
 
 **Archivo: `Dockerfile`**
+
 ```dockerfile
 FROM python:3.8-slim
 
@@ -487,11 +488,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copiar requirements
-COPY requirements.txt .
+COPY requirements-detail.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar código
-COPY . .
+COPY .. .
 
 # Comando por defecto
 CMD ["python", "-m", "src.main"]

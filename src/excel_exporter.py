@@ -14,22 +14,41 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 
 
 class ExcelExporter:
-    def __init__(self, datos: List[Dict[str, Any]], errores: List[Dict[str, Any]] = None, directorio_salida: str = "resultados"):
+    def __init__(self, datos: List[Dict[str, Any]], errores: List[Dict[str, Any]] = None,
+                 directorio_salida: str = None, trimestre: str = "", año: str = ""):
         """
         Inicializa el exportador de Excel.
+
+        Nueva estructura (desde v2.0):
+        - Los reportes se guardan en: documentos/reportes/YYYY/XT/
+        - Nombres de archivo: FACTURAS_{AÑO}_{TRIMESTRE}.xlsx
 
         Args:
             datos (List[Dict[str, Any]]): Lista de datos extraídos de facturas
             errores (List[Dict[str, Any]]): Lista de errores de extracción
-            directorio_salida (str): Directorio donde guardar los archivos generados
+            directorio_salida (str, optional): Directorio personalizado. Si None, usa estructura nueva.
+            trimestre (str): Trimestre procesado (1T, 2T, 3T, 4T) - para organización
+            año (str): Año procesado - para organización
         """
         self.datos = datos
         self.errores = errores or []
-        self.directorio_salida = directorio_salida
+        self.trimestre = trimestre
+        self.año = año
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+        # Determinar directorio de salida
+        if directorio_salida is None:
+            # Nueva estructura: documentos/reportes/YYYY/XT/
+            if trimestre and año:
+                self.directorio_salida = os.path.join("documentos", "reportes", año, trimestre)
+            else:
+                # Fallback si no se especifica trimestre/año
+                self.directorio_salida = os.path.join("documentos", "reportes", "sin_clasificar")
+        else:
+            self.directorio_salida = directorio_salida
+
         # Crear directorio de salida si no existe
-        os.makedirs(directorio_salida, exist_ok=True)
+        os.makedirs(self.directorio_salida, exist_ok=True)
 
     def _filtrar_columnas_estandar(self, datos: List[Dict[str, Any]], excluir_duplicados: bool = True, excluir_errores: bool = True) -> List[Dict[str, Any]]:
         """
@@ -94,6 +113,8 @@ class ExcelExporter:
         """
         Exporta TODOS los datos incluyendo metadatos (para debugging y control).
 
+        Nueva nomenclatura: FACTURAS_DEBUG_{AÑO}_{TRIMESTRE}.xlsx
+
         Args:
             nombre_archivo (str, optional): Nombre del archivo. Si None, se genera automáticamente.
 
@@ -104,7 +125,10 @@ class ExcelExporter:
             raise ValueError("No hay datos para exportar")
 
         if nombre_archivo is None:
-            nombre_archivo = f"facturas_completo_debug_{self.timestamp}.xlsx"
+            if self.trimestre and self.año:
+                nombre_archivo = f"FACTURAS_DEBUG_{self.año}_{self.trimestre}.xlsx"
+            else:
+                nombre_archivo = f"facturas_completo_debug_{self.timestamp}.xlsx"
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
@@ -122,6 +146,8 @@ class ExcelExporter:
         """
         Exporta un Excel con los errores de extracción (para debugging).
 
+        Nueva nomenclatura: ERRORES_{AÑO}_{TRIMESTRE}.xlsx
+
         Args:
             nombre_archivo (str, optional): Nombre del archivo. Si None, se genera automáticamente.
 
@@ -133,7 +159,10 @@ class ExcelExporter:
             return None
 
         if nombre_archivo is None:
-            nombre_archivo = f"errores_extraccion_{self.timestamp}.xlsx"
+            if self.trimestre and self.año:
+                nombre_archivo = f"ERRORES_{self.año}_{self.trimestre}.xlsx"
+            else:
+                nombre_archivo = f"errores_extraccion_{self.timestamp}.xlsx"
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 
@@ -209,6 +238,8 @@ class ExcelExporter:
         """
         Exporta los datos a un archivo Excel con formato profesional.
 
+        Nueva nomenclatura: FACTURAS_{AÑO}_{TRIMESTRE}.xlsx
+
         Args:
             nombre_archivo (str, optional): Nombre del archivo. Si None, se genera automáticamente.
 
@@ -219,7 +250,10 @@ class ExcelExporter:
             raise ValueError("No hay datos para exportar")
 
         if nombre_archivo is None:
-            nombre_archivo = f"facturas_formateadas_{self.timestamp}.xlsx"
+            if self.trimestre and self.año:
+                nombre_archivo = f"FACTURAS_{self.año}_{self.trimestre}.xlsx"
+            else:
+                nombre_archivo = f"facturas_formateadas_{self.timestamp}.xlsx"
 
         ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
 

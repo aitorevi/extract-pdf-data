@@ -133,15 +133,22 @@ class PDFExtractor:
         else:
             return None
 
-    def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas",
+    def __init__(self, directorio_facturas: str = "documentos/por_procesar",
+                 directorio_plantillas: str = "plantillas",
                  trimestre: str = "", año: str = "", organizar_archivos: bool = True):
         """
         Inicializa el extractor de PDF.
 
+        Nueva estructura (desde v2.0):
+        - directorio_facturas: documentos/por_procesar/ (PDFs pendientes)
+        - Resultados organizados en: documentos/procesados/
+        - Reportes Excel en: documentos/reportes/
+
         Args:
-            directorio_facturas (str): Directorio donde están las facturas PDF
+            directorio_facturas (str): Directorio donde están las facturas PDF a procesar
+                                       (default: "documentos/por_procesar")
             directorio_plantillas (str): Directorio donde están las plantillas JSON
-            trimestre (str): Trimestre fiscal (Q1, Q2, Q3, Q4)
+            trimestre (str): Trimestre fiscal (1T, 2T, 3T, 4T)
             año (str): Año fiscal
             organizar_archivos (bool): Si True, organiza PDFs automáticamente después de procesar
         """
@@ -157,7 +164,11 @@ class PDFExtractor:
         # Inicializar organizador de archivos si está habilitado
         if self.organizar_archivos:
             from src.file_organizer import PDFOrganizer
-            self.organizador = PDFOrganizer(directorio_base=directorio_facturas)
+            # Extraer directorio base (documentos) de la ruta de facturas
+            # Ej: "documentos/por_procesar" → "documentos"
+            from pathlib import Path
+            directorio_base = Path(directorio_facturas).parent if "/" in directorio_facturas else "documentos"
+            self.organizador = PDFOrganizer(directorio_base=str(directorio_base))
         else:
             self.organizador = None
 

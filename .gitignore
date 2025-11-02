@@ -41,12 +41,15 @@ coverage.xml
 .DS_Store
 Thumbs.db
 
-# Project specific
-resultados/*.xlsx
-resultados/*.csv
-resultados/*.json
-facturas/*.pdf
-!facturas/.gitkeep
+# Project specific - v2.0 structure
+documentos/por_procesar/*.pdf
+documentos/procesados/**/*.pdf
+documentos/procesados/**/*.json
+documentos/reportes/**/*.xlsx
+documentos/reportes/**/*.csv
+documentos/reportes/**/*.json
+
+# Plantillas
 plantillas/*.json
 !plantillas/.gitkeep
 

@@ -17,15 +17,15 @@ from src.file_organizer import PDFOrganizer, PALABRAS_FACTURA, UMBRAL_PALABRAS_F
 
 def test_pdforganizer_inicializacion_default():
     """
-    Test: PDFOrganizer se inicializa con directorio por defecto 'facturas'.
+    Test: PDFOrganizer se inicializa con directorio por defecto 'documentos' (v2.0).
     """
     organizer = PDFOrganizer()
 
-    assert organizer.directorio_base == Path("facturas")
-    assert organizer.directorio_procesadas == Path("facturas/procesadas")
-    assert organizer.directorio_indices == Path("facturas/procesadas/indices")
-    assert organizer.directorio_duplicados == Path("facturas/duplicados")
-    assert organizer.directorio_errores == Path("facturas/errores")
+    assert organizer.directorio_base == Path("documentos")
+    assert organizer.directorio_procesadas == Path("documentos/procesados/facturas")
+    assert organizer.directorio_indices == Path("documentos/procesados/indices")
+    assert organizer.directorio_duplicados == Path("documentos/procesados/duplicados")
+    assert organizer.directorio_errores == Path("documentos/procesados/errores")
     assert organizer.directorio_logs == Path("logs")
 
 
@@ -33,10 +33,10 @@ def test_pdforganizer_inicializacion_custom():
     """
     Test: PDFOrganizer acepta directorio base personalizado.
     """
-    organizer = PDFOrganizer(directorio_base="mis_facturas")
+    organizer = PDFOrganizer(directorio_base="mis_documentos")
 
-    assert organizer.directorio_base == Path("mis_facturas")
-    assert organizer.directorio_procesadas == Path("mis_facturas/procesadas")
+    assert organizer.directorio_base == Path("mis_documentos")
+    assert organizer.directorio_procesadas == Path("mis_documentos/procesados/facturas")
 
 
 @patch('src.file_organizer.Path.mkdir')

@@ -35,18 +35,30 @@ class PDFOrganizer:
     Mantiene un índice de facturas procesadas por trimestre para detectar duplicados.
     """
 
-    def __init__(self, directorio_base: str = "facturas"):
+    def __init__(self, directorio_base: str = "documentos"):
         """
         Inicializa el organizador de PDFs.
 
+        Nueva estructura (desde v2.0):
+        - documentos/por_procesar/           ← PDFs pendientes
+        - documentos/procesados/facturas/    ← Facturas exitosas
+        - documentos/procesados/indices/     ← Índices por trimestre
+        - documentos/procesados/duplicados/  ← Duplicados
+        - documentos/procesados/errores/     ← Errores
+        - documentos/reportes/               ← Excel (gestionado por ExcelExporter)
+
         Args:
-            directorio_base: Directorio raíz donde están las facturas (default: "facturas")
+            directorio_base: Directorio raíz (default: "documentos")
         """
         self.directorio_base = Path(directorio_base)
-        self.directorio_procesadas = self.directorio_base / "procesadas"
-        self.directorio_indices = self.directorio_procesadas / "indices"
-        self.directorio_duplicados = self.directorio_base / "duplicados"
-        self.directorio_errores = self.directorio_base / "errores"
+
+        # Nueva estructura: todo bajo procesados/
+        directorio_procesados = self.directorio_base / "procesados"
+
+        self.directorio_procesadas = directorio_procesados / "facturas"
+        self.directorio_indices = directorio_procesados / "indices"  # ← Ahora fuera de facturas/
+        self.directorio_duplicados = directorio_procesados / "duplicados"
+        self.directorio_errores = directorio_procesados / "errores"
         self.directorio_logs = Path("logs")
 
         # Crear estructura de carpetas si no existe

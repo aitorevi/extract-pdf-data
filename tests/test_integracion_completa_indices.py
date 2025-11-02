@@ -159,8 +159,8 @@ class TestIntegracionCompletaIndicesYOrganizacion:
         assert factura['Año'] == "2026", "En Excel debe ser año 2026 (lógica negocio)"
 
         # Paso 2: Verificar que se generó índice en trimestre REAL (4T 2025, NO 1T 2026)
-        indice_4t_2025_path = self.facturas_dir / "procesadas" / "indices" / "indice_2025_4T.json"
-        indice_1t_2026_path = self.facturas_dir / "procesadas" / "indices" / "indice_2026_1T.json"
+        indice_4t_2025_path = Path(self.temp_dir) / "procesados" / "indices" / "indice_2025_4T.json"
+        indice_1t_2026_path = Path(self.temp_dir) / "procesados" / "indices" / "indice_2026_1T.json"
 
         assert indice_4t_2025_path.exists(), "Debe existir índice de 4T 2025 (trimestre REAL)"
         assert not indice_1t_2026_path.exists(), "NO debe existir índice de 1T 2026"
@@ -179,8 +179,8 @@ class TestIntegracionCompletaIndicesYOrganizacion:
         assert factura_indice['fecha_factura'] == "2025-12-15"
 
         # Paso 4: Verificar que archivo se organizó en carpeta correcta
-        # Debe estar en 2025/12/Test_Provider (año y mes del trimestre REAL)
-        archivo_organizado = self.facturas_dir / "procesadas" / "2025" / "12" / "Test_Provider" / "factura_diciembre_2025.pdf"
+        # Debe estar en procesados/facturas/2025/12/Test_Provider (año y mes del trimestre REAL)
+        archivo_organizado = Path(self.temp_dir) / "procesados" / "facturas" / "2025" / "12" / "Test_Provider" / "factura_diciembre_2025.pdf"
         assert archivo_organizado.exists(), f"Archivo debe estar en {archivo_organizado}"
 
     @patch('pdfplumber.open')
@@ -220,11 +220,11 @@ class TestIntegracionCompletaIndicesYOrganizacion:
         assert '_Error' not in resultados_1[0], "Primera ejecución no debe tener errores"
 
         # Verificar que se creó índice 4T 2025
-        indice_4t_2025_path = self.facturas_dir / "procesadas" / "indices" / "indice_2025_4T.json"
+        indice_4t_2025_path = Path(self.temp_dir) / "procesados" / "indices" / "indice_2025_4T.json"
         assert indice_4t_2025_path.exists()
 
         # Verificar que archivo se organizó correctamente
-        archivo_primera_ejecucion = self.facturas_dir / "procesadas" / "2025" / "12" / "Test_Provider" / "factura_diciembre.pdf"
+        archivo_primera_ejecucion = Path(self.temp_dir) / "procesados" / "facturas" / "2025" / "12" / "Test_Provider" / "factura_diciembre.pdf"
         assert archivo_primera_ejecucion.exists()
 
         # === SEGUNDA EJECUCIÓN: Reprocesar con 1T 2026 ===
@@ -246,7 +246,7 @@ class TestIntegracionCompletaIndicesYOrganizacion:
 
         # Verificaciones críticas:
         # 1. NO debe existir índice de 1T 2026
-        indice_1t_2026_path = self.facturas_dir / "procesadas" / "indices" / "indice_2026_1T.json"
+        indice_1t_2026_path = Path(self.temp_dir) / "procesados" / "indices" / "indice_2026_1T.json"
         assert not indice_1t_2026_path.exists(), "NO debe crear índice de 1T 2026"
 
         # 2. Índice de 4T 2025 debe seguir teniendo solo 1 factura
@@ -255,7 +255,7 @@ class TestIntegracionCompletaIndicesYOrganizacion:
         assert len(indice_final['facturas']) == 1, "Índice 4T 2025 debe tener solo 1 factura (no duplicados)"
 
         # 3. Archivo duplicado debe estar en carpeta duplicados/2025/4T/
-        carpeta_duplicados = self.facturas_dir / "duplicados" / "2025" / "4T"
+        carpeta_duplicados = Path(self.temp_dir) / "procesados" / "duplicados" / "2025" / "4T"
         assert carpeta_duplicados.exists(), "Debe existir carpeta de duplicados"
 
     @patch('pdfplumber.open')
@@ -316,7 +316,7 @@ class TestIntegracionCompletaIndicesYOrganizacion:
         assert len(resultados) == 3, "Debe haber procesado 3 facturas"
 
         # Verificar índices por trimestre REAL
-        indices_dir = self.facturas_dir / "procesadas" / "indices"
+        indices_dir = Path(self.temp_dir) / "procesados" / "indices"
 
         # Debe existir índice para 1T, 3T y 4T
         indice_1t = indices_dir / "indice_2025_1T.json"
@@ -371,7 +371,7 @@ class TestIntegracionCompletaIndicesYOrganizacion:
         extractor.procesar_directorio_facturas()
 
         # Verificar índice
-        indice_path = self.facturas_dir / "procesadas" / "indices" / "indice_2025_1T.json"
+        indice_path = Path(self.temp_dir) / "procesados" / "indices" / "indice_2025_1T.json"
         assert indice_path.exists()
 
         with open(indice_path, 'r', encoding='utf-8') as f:
