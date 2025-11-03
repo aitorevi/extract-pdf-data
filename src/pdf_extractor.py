@@ -604,8 +604,11 @@ class PDFExtractor:
 
         # Inicializar con nombres de columnas estándar (todos vacíos por defecto)
         # Solo los 9 campos requeridos por el usuario
+        # Limpiar CIF del proveedor usando la clase CIF para eliminar guiones, puntos, etc.
+        cif_proveedor_limpio = CIF(plantilla.get('cif_proveedor', '')).value
+
         datos_factura = {
-            'CIF': plantilla.get('cif_proveedor', ''),  # CIF del proveedor desde la plantilla
+            'CIF': cif_proveedor_limpio,  # CIF del proveedor limpio (sin guiones ni puntos)
             'FechaFactura': '',
             'Trimestre': self.trimestre,
             'Año': self.año,
@@ -1093,9 +1096,12 @@ class PDFExtractor:
 
                     print(f"  Extrayendo factura '{num_factura}' de página {num_pagina + 1} ({len(paginas_grupo)} página(s) total)")
 
+                    # Limpiar CIF del proveedor usando la clase CIF para eliminar guiones, puntos, etc.
+                    cif_proveedor_limpio = CIF(plantilla.get('cif_proveedor', '')).value
+
                     # Extraer datos de la última página
                     datos_factura = {
-                        'CIF': plantilla.get('cif_proveedor', ''),
+                        'CIF': cif_proveedor_limpio,  # CIF del proveedor limpio (sin guiones ni puntos)
                         'FechaFactura': '',
                         'Trimestre': self.trimestre,
                         'Año': self.año,
