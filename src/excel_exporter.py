@@ -50,6 +50,25 @@ class ExcelExporter:
         # Crear directorio de salida si no existe
         os.makedirs(self.directorio_salida, exist_ok=True)
 
+    def _get_subdirectorio(self, tipo: str) -> str:
+        """
+        Obtiene el subdirectorio para un tipo de archivo.
+
+        Args:
+            tipo (str): Tipo de archivo (principal, debug, csv, json)
+
+        Returns:
+            str: Ruta del subdirectorio
+        """
+        if tipo in ["principal", "basico"]:
+            # Excel formateado y básico van en la raíz
+            return self.directorio_salida
+        else:
+            # Otros archivos van en subdirectorios (debug, csv, json)
+            subdirectorio = os.path.join(self.directorio_salida, tipo)
+            os.makedirs(subdirectorio, exist_ok=True)
+            return subdirectorio
+
     def _filtrar_columnas_estandar(self, datos: List[Dict[str, Any]], excluir_duplicados: bool = True, excluir_errores: bool = True) -> List[Dict[str, Any]]:
         """
         Filtra solo las columnas estándar (excluye las que empiezan con _).
@@ -80,6 +99,7 @@ class ExcelExporter:
     def exportar_excel_basico(self, nombre_archivo: Optional[str] = None) -> str:
         """
         Exporta los datos a un archivo Excel básico usando pandas.
+        Se guarda en la raíz del directorio del trimestre.
 
         Args:
             nombre_archivo (str, optional): Nombre del archivo. Si None, se genera automáticamente.
@@ -93,7 +113,9 @@ class ExcelExporter:
         if nombre_archivo is None:
             nombre_archivo = f"facturas_extraidas_{self.timestamp}.xlsx"
 
-        ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
+        # Excel básico va en la raíz
+        directorio = self._get_subdirectorio("basico")
+        ruta_completa = os.path.join(directorio, nombre_archivo)
 
         # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
         # Y excluir duplicados y errores
@@ -112,6 +134,7 @@ class ExcelExporter:
     def exportar_excel_completo(self, nombre_archivo: Optional[str] = None) -> str:
         """
         Exporta TODOS los datos incluyendo metadatos (para debugging y control).
+        Se guarda en la subcarpeta debug/.
 
         Nueva nomenclatura: FACTURAS_DEBUG_{AÑO}_{TRIMESTRE}.xlsx
 
@@ -130,7 +153,9 @@ class ExcelExporter:
             else:
                 nombre_archivo = f"facturas_completo_debug_{self.timestamp}.xlsx"
 
-        ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
+        # Excel debug va en subcarpeta debug/
+        directorio = self._get_subdirectorio("debug")
+        ruta_completa = os.path.join(directorio, nombre_archivo)
 
         # Crear DataFrame con TODOS los datos (sin filtrar)
         df = pd.DataFrame(self.datos)
@@ -145,6 +170,7 @@ class ExcelExporter:
     def exportar_excel_errores(self, nombre_archivo: Optional[str] = None) -> Optional[str]:
         """
         Exporta un Excel con los errores de extracción (para debugging).
+        Se guarda en la subcarpeta debug/.
 
         Nueva nomenclatura: ERRORES_{AÑO}_{TRIMESTRE}.xlsx
 
@@ -164,7 +190,9 @@ class ExcelExporter:
             else:
                 nombre_archivo = f"errores_extraccion_{self.timestamp}.xlsx"
 
-        ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
+        # Excel de errores va en subcarpeta debug/
+        directorio = self._get_subdirectorio("debug")
+        ruta_completa = os.path.join(directorio, nombre_archivo)
 
         # Crear DataFrame con los errores
         df_errores = pd.DataFrame(self.errores)
@@ -237,6 +265,7 @@ class ExcelExporter:
     def exportar_excel_formateado(self, nombre_archivo: Optional[str] = None) -> str:
         """
         Exporta los datos a un archivo Excel con formato profesional.
+        Se guarda en la raíz del directorio del trimestre (archivo principal).
 
         Nueva nomenclatura: FACTURAS_{AÑO}_{TRIMESTRE}.xlsx
 
@@ -255,7 +284,9 @@ class ExcelExporter:
             else:
                 nombre_archivo = f"facturas_formateadas_{self.timestamp}.xlsx"
 
-        ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
+        # Excel formateado (principal) va en la raíz
+        directorio = self._get_subdirectorio("principal")
+        ruta_completa = os.path.join(directorio, nombre_archivo)
 
         # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
         # Y excluir duplicados y errores
@@ -506,6 +537,7 @@ class ExcelExporter:
     def exportar_csv(self, nombre_archivo: Optional[str] = None) -> str:
         """
         Exporta los datos a un archivo CSV.
+        Se guarda en la subcarpeta csv/.
 
         Args:
             nombre_archivo (str, optional): Nombre del archivo. Si None, se genera automáticamente.
@@ -519,7 +551,9 @@ class ExcelExporter:
         if nombre_archivo is None:
             nombre_archivo = f"facturas_extraidas_{self.timestamp}.csv"
 
-        ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
+        # CSV va en subcarpeta csv/
+        directorio = self._get_subdirectorio("csv")
+        ruta_completa = os.path.join(directorio, nombre_archivo)
 
         # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
         # Y excluir duplicados y errores
@@ -535,6 +569,7 @@ class ExcelExporter:
     def exportar_json(self, nombre_archivo: Optional[str] = None) -> str:
         """
         Exporta los datos a un archivo JSON.
+        Se guarda en la subcarpeta json/.
 
         Args:
             nombre_archivo (str, optional): Nombre del archivo. Si None, se genera automáticamente.
@@ -548,7 +583,9 @@ class ExcelExporter:
         if nombre_archivo is None:
             nombre_archivo = f"facturas_extraidas_{self.timestamp}.json"
 
-        ruta_completa = os.path.join(self.directorio_salida, nombre_archivo)
+        # JSON va en subcarpeta json/
+        directorio = self._get_subdirectorio("json")
+        ruta_completa = os.path.join(directorio, nombre_archivo)
 
         # Filtrar solo columnas estándar (sin metadatos que empiezan con _)
         # Y excluir duplicados y errores
