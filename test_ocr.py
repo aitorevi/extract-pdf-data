@@ -22,7 +22,7 @@ def main():
     ocr = OCREngine()
 
     if ocr.is_available():
-        print("   ✓ Tesseract está instalado y funcional")
+        print("   [OK] Tesseract esta instalado y funcional")
         try:
             import pytesseract
             version = pytesseract.get_tesseract_version()
@@ -31,7 +31,7 @@ def main():
         except Exception as e:
             print(f"   Error obteniendo version: {e}")
     else:
-        print("   ✗ Tesseract NO está instalado")
+        print("   [ERROR] Tesseract NO esta instalado")
         print()
         print("   Por favor, instala Tesseract siguiendo las instrucciones en:")
         print("   .docs/INSTALACION_TESSERACT.md")

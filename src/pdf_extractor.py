@@ -12,6 +12,8 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from src.utils.data_cleaners import DataCleaner
 from src.utils.cif import CIF
+from src.utils.pdf_text_detector import tiene_texto_extraible
+from src.utils.ocr_engine import OCREngine
 
 
 class PDFExtractor:
@@ -172,6 +174,10 @@ class PDFExtractor:
         else:
             self.organizador = None
 
+        # Inicializar motor OCR (inglés por defecto, funciona bien para español también)
+        self.ocr = OCREngine(idioma='eng')
+        self.ocr_disponible = self.ocr.is_available()
+
     def cargar_plantillas(self) -> bool:
         """
         Carga todas las plantillas JSON disponibles.
@@ -272,6 +278,16 @@ class PDFExtractor:
 
                 pagina = pdf.pages[0]
 
+                # Detectar si el PDF tiene texto extraíble
+                usa_ocr = False
+                if not tiene_texto_extraible(pagina):
+                    if self.ocr_disponible:
+                        print("  [OCR] PDF sin texto extraíble, usando OCR...")
+                        usa_ocr = True
+                    else:
+                        print("  ⚠️ PDF sin texto extraíble y OCR no disponible")
+                        return None
+
                 # Probar cada plantilla
                 for proveedor_id, plantilla in self.plantillas_cargadas.items():
                     print(f"  Probando plantilla: {proveedor_id}")
@@ -289,18 +305,28 @@ class PDFExtractor:
 
                         try:
                             bbox = tuple(coordenadas)
-                            area_recortada = pagina.crop(bbox)
-                            texto = area_recortada.extract_text() or ""
-                            texto = texto.strip()
+
+                            # Extraer texto según disponibilidad
+                            if usa_ocr:
+                                # Usar OCR para extraer de área específica
+                                texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=1)
+                                texto = texto.strip()
+                            else:
+                                # Extracción normal con pdfplumber
+                                area_recortada = pagina.crop(bbox)
+                                texto = area_recortada.extract_text() or ""
+                                texto = texto.strip()
 
                             if nombre_campo == 'CIF_Identificacion':
                                 # Sanear CIF usando el Value Object
                                 cif_obj = CIF(texto)
                                 cif_extraido = cif_obj.value
-                                print(f"    CIF extraído: {texto} -> normalizado: {cif_extraido}")
+                                metodo = "OCR" if usa_ocr else "directo"
+                                print(f"    CIF extraído ({metodo}): {texto} -> normalizado: {cif_extraido}")
                             elif nombre_campo == 'Nombre_Identificacion':
                                 nombre_extraido = texto.lower()
-                                print(f"    Nombre extraído: {nombre_extraido}")
+                                metodo = "OCR" if usa_ocr else "directo"
+                                print(f"    Nombre extraído ({metodo}): {nombre_extraido}")
                         except Exception as e:
                             print(f"    Error extrayendo {nombre_campo}: {e}")
 

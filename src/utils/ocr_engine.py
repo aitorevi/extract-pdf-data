@@ -48,6 +48,31 @@ class OCREngine:
         # En Linux/Mac, tesseract suele estar en PATH
         return None
 
+    def _detectar_poppler_path(self) -> Optional[str]:
+        """
+        Intenta detectar automáticamente la ruta de poppler.
+
+        Returns:
+            Ruta al directorio bin de poppler o None si no se encuentra
+        """
+        # Primero buscar en el proyecto
+        proyecto_poppler = os.path.join(os.getcwd(), 'poppler', 'Library', 'bin')
+        if os.path.exists(proyecto_poppler):
+            return proyecto_poppler
+
+        # Rutas comunes en Windows
+        rutas_windows = [
+            r'C:\Program Files\poppler\Library\bin',
+            r'C:\poppler\Library\bin',
+        ]
+
+        for ruta in rutas_windows:
+            if os.path.exists(ruta):
+                return ruta
+
+        # En Linux/Mac, poppler suele estar en PATH
+        return None
+
     def is_available(self) -> bool:
         """
         Verifica si Tesseract está disponible.
@@ -73,11 +98,15 @@ class OCREngine:
         Returns:
             Objeto Image de PIL
         """
+        # Detectar ruta de poppler en el proyecto
+        poppler_path = self._detectar_poppler_path()
+
         imagenes = convert_from_path(
             pdf_path,
             dpi=dpi,
             first_page=pagina_num,
-            last_page=pagina_num
+            last_page=pagina_num,
+            poppler_path=poppler_path
         )
         return imagenes[0] if imagenes else None
 
@@ -152,27 +181,36 @@ class OCREngine:
             return []
 
     def extraer_texto_area(self, pdf_path: str, bbox: Tuple[float, float, float, float],
-                          pagina_num: int = 1) -> str:
+                          pagina_num: int = 1, dpi: int = 300) -> str:
         """
         Extrae texto de un área específica del PDF usando OCR.
 
         Args:
             pdf_path: Ruta al archivo PDF
-            bbox: Tupla (x0, top, x1, bottom) con coordenadas del área
+            bbox: Tupla (x0, top, x1, bottom) con coordenadas del área en puntos PDF (72 DPI)
             pagina_num: Número de página (1-indexed)
+            dpi: DPI usado para generar la imagen (default: 300)
 
         Returns:
             Texto extraído del área
         """
         try:
             # Convertir PDF a imagen
-            imagen = self.pdf_a_imagen(pdf_path, pagina_num)
+            imagen = self.pdf_a_imagen(pdf_path, pagina_num, dpi=dpi)
             if imagen is None:
                 return ""
 
-            # Recortar área (PIL usa: left, top, right, bottom)
+            # Escalar coordenadas de PDF (72 DPI) a imagen (dpi)
+            # Factor de escala: dpi_imagen / 72
+            escala = dpi / 72.0
             x0, top, x1, bottom = bbox
-            area_recortada = imagen.crop((int(x0), int(top), int(x1), int(bottom)))
+            x0_img = int(x0 * escala)
+            top_img = int(top * escala)
+            x1_img = int(x1 * escala)
+            bottom_img = int(bottom * escala)
+
+            # Recortar área (PIL usa: left, top, right, bottom)
+            area_recortada = imagen.crop((x0_img, top_img, x1_img, bottom_img))
 
             # Aplicar OCR solo al área
             texto = pytesseract.image_to_string(area_recortada, lang=self.idioma)
