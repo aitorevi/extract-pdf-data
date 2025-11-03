@@ -76,7 +76,7 @@ class TestLogicaMarcadoTrimestres:
         trimestre_usuario = 2
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 
@@ -91,7 +91,7 @@ class TestLogicaMarcadoTrimestres:
         trimestre_usuario = 2
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 
@@ -106,7 +106,7 @@ class TestLogicaMarcadoTrimestres:
         trimestre_usuario = 2
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 
@@ -121,7 +121,7 @@ class TestLogicaMarcadoTrimestres:
         trimestre_usuario = 2
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 
@@ -136,7 +136,7 @@ class TestLogicaMarcadoTrimestres:
         trimestre_usuario = 3
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 
@@ -151,7 +151,7 @@ class TestLogicaMarcadoTrimestres:
         trimestre_usuario = 3
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 
@@ -170,7 +170,7 @@ class TestCasoEspecialT1ConAñoAnterior:
         trimestre_usuario = 1
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 
@@ -185,7 +185,7 @@ class TestCasoEspecialT1ConAñoAnterior:
         trimestre_usuario = 1
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 
@@ -200,7 +200,7 @@ class TestCasoEspecialT1ConAñoAnterior:
         trimestre_usuario = 1
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 
@@ -215,7 +215,7 @@ class TestCasoEspecialT1ConAñoAnterior:
         trimestre_usuario = 1
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 
@@ -231,7 +231,7 @@ class TestCasoEspecialT1ConAñoAnterior:
         trimestre_usuario = 2
         año_usuario = 2025
 
-        resultado = PDFExtractor.determinar_trimestre_factura(
+        resultado = PDFExtractor.determinar_trimestre_para_exportacion_excel(
             fecha_factura, trimestre_usuario, año_usuario
         )
 

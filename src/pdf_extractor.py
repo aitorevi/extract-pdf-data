@@ -86,13 +86,17 @@ class PDFExtractor:
         return f"{numero}T"
 
     @staticmethod
-    def determinar_trimestre_factura(fecha_factura: datetime,
-                                     trimestre_usuario: int,
-                                     año_usuario: int) -> Optional[tuple]:
+    def determinar_trimestre_para_exportacion_excel(fecha_factura: datetime,
+                                                     trimestre_usuario: int,
+                                                     año_usuario: int) -> Optional[tuple]:
         """
-        Determina el trimestre y año que debe asignarse a una factura según la lógica de negocio.
+        Calcula el trimestre y año que debe aparecer en el Excel según lógica de negocio compleja.
 
-        Lógica:
+        IMPORTANTE: Esta función implementa reglas de negocio específicas para la exportación
+        a Excel y NO debe usarse para cálculos de índices o detección de duplicados.
+        Para esos casos, usar calcular_trimestre_desde_fecha() que calcula el trimestre real.
+
+        Lógica de negocio (para Excel):
         - Si la factura es del mismo año y su trimestre es <= al trimestre introducido:
           se marca con el trimestre introducido
         - Si la factura es del mismo año y su trimestre es > al trimestre introducido:
@@ -129,16 +133,24 @@ class PDFExtractor:
         else:
             return None
 
-    def __init__(self, directorio_facturas: str = "facturas", directorio_plantillas: str = "plantillas",
-                 trimestre: str = "", año: str = ""):
+    def __init__(self, directorio_facturas: str = "documentos/por_procesar",
+                 directorio_plantillas: str = "plantillas",
+                 trimestre: str = "", año: str = "", organizar_archivos: bool = True):
         """
         Inicializa el extractor de PDF.
 
+        Nueva estructura (desde v2.0):
+        - directorio_facturas: documentos/por_procesar/ (PDFs pendientes)
+        - Resultados organizados en: documentos/procesados/
+        - Reportes Excel en: documentos/reportes/
+
         Args:
-            directorio_facturas (str): Directorio donde están las facturas PDF
+            directorio_facturas (str): Directorio donde están las facturas PDF a procesar
+                                       (default: "documentos/por_procesar")
             directorio_plantillas (str): Directorio donde están las plantillas JSON
-            trimestre (str): Trimestre fiscal (Q1, Q2, Q3, Q4)
+            trimestre (str): Trimestre fiscal (1T, 2T, 3T, 4T)
             año (str): Año fiscal
+            organizar_archivos (bool): Si True, organiza PDFs automáticamente después de procesar
         """
         self.directorio_facturas = directorio_facturas
         self.directorio_plantillas = directorio_plantillas
@@ -147,6 +159,18 @@ class PDFExtractor:
         self.errores = []  # Lista separada para registrar errores de extracción
         self.trimestre = trimestre
         self.año = año
+        self.organizar_archivos = organizar_archivos
+
+        # Inicializar organizador de archivos si está habilitado
+        if self.organizar_archivos:
+            from src.file_organizer import PDFOrganizer
+            # Extraer directorio base (documentos) de la ruta de facturas
+            # Ej: "documentos/por_procesar" → "documentos"
+            from pathlib import Path
+            directorio_base = Path(directorio_facturas).parent if "/" in directorio_facturas else "documentos"
+            self.organizador = PDFOrganizer(directorio_base=str(directorio_base))
+        else:
+            self.organizador = None
 
     def cargar_plantillas(self) -> bool:
         """
@@ -465,12 +489,15 @@ class PDFExtractor:
 
         return datos_extraidos
 
-    def _aplicar_logica_trimestres(self, datos_factura: Dict[str, Any]) -> None:
+    def _aplicar_reglas_asignacion_trimestre_excel(self, datos_factura: Dict[str, Any]) -> None:
         """
-        Aplica la lógica de marcado de trimestres basándose en la fecha de factura.
+        Aplica las reglas de negocio para asignar trimestre/año en la exportación Excel.
+
+        IMPORTANTE: Esta función modifica Trimestre y Año SOLO para el Excel según
+        reglas de negocio complejas. NO afecta a índices ni organización de archivos.
 
         Modifica el diccionario datos_factura in-place:
-        - Actualiza campos Trimestre y Año según la lógica de negocio
+        - Actualiza campos Trimestre y Año según la lógica de negocio para Excel
         - Si la factura debe excluirse, añade campo _Error
 
         Args:
@@ -493,8 +520,8 @@ class PDFExtractor:
                 print(f"  WARN: No se pudo parsear FechaFactura: {fecha_factura_str}")
                 return
 
-            # Determinar el trimestre y año que debe asignarse
-            resultado = self.determinar_trimestre_factura(fecha_factura, trimestre_usuario, año_usuario)
+            # Determinar el trimestre y año que debe asignarse (con lógica de negocio para Excel)
+            resultado = self.determinar_trimestre_para_exportacion_excel(fecha_factura, trimestre_usuario, año_usuario)
 
             if resultado is None:
                 # La factura debe excluirse (año diferente y no cumple caso especial T1)
@@ -651,14 +678,8 @@ class PDFExtractor:
                     for campo in plantilla.get('campos', [])
                 )
 
-                if not tiene_campo_cif_cliente:
-                    # Rechazar facturas de plantillas sin CIF_Cliente
-                    motivo = f"Plantilla '{proveedor_id}' no tiene campo CIF_Cliente - no se puede validar"
-                    datos_factura['_Error'] = motivo
-                    datos_factura['_Motivo_Rechazo'] = motivo
-                    print(f"  ERROR: {motivo}")
-                    print(f"  SOLUCION: Añade el campo CIF_Cliente a la plantilla usando el editor")
-                else:
+                if tiene_campo_cif_cliente:
+                    # Solo validar si la plantilla tiene el campo CIF_Cliente
                     print("  Verificando CIF del cliente...")
                     cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
 
@@ -675,10 +696,14 @@ class PDFExtractor:
                         print(f"  WARN: Factura rechazada - CIF cliente incorrecto")
                     else:
                         datos_factura['_CIF_Valido'] = True
+                else:
+                    # Plantilla sin CIF_Cliente: permitir procesamiento sin validación
+                    print(f"  INFO: Plantilla sin campo CIF_Cliente - omitiendo validación")
+                    datos_factura['_CIF_Valido'] = None
 
-                # Aplicar lógica de trimestres basada en fecha de factura
+                # Aplicar reglas de asignación de trimestre para Excel
                 if self.trimestre and self.año:
-                    self._aplicar_logica_trimestres(datos_factura)
+                    self._aplicar_reglas_asignacion_trimestre_excel(datos_factura)
 
         except Exception as e:
             print(f"Error procesando PDF {ruta_pdf}: {e}")
@@ -789,6 +814,13 @@ class PDFExtractor:
                         resultados.append(datos)
 
                     print(f"OK Procesado exitosamente ({len(lista_datos)} factura(s))")
+
+                    # Organizar archivo PDF si está habilitado
+                    if self.organizador:
+                        # Usar los datos de la primera factura (en caso de múltiples facturas en un PDF)
+                        # Si hay error en alguna factura, usar None
+                        datos_para_organizar = lista_datos[0] if lista_datos else None
+                        self.organizador.organizar_pdf(ruta_completa, datos_para_organizar)
                 except Exception as e:
                     print(f"ERROR procesando: {e}")
                     # Registrar en log de errores, NO en resultados
@@ -800,6 +832,10 @@ class PDFExtractor:
                         'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     self.errores.append(error_registro)
+
+                    # Organizar PDF con error si está habilitado
+                    if self.organizador:
+                        self.organizador.organizar_pdf(ruta_completa, None)
             else:
                 print(f"ERROR Proveedor no identificado")
                 # Registrar en log de errores, NO en resultados
@@ -811,6 +847,10 @@ class PDFExtractor:
                     'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
                 self.errores.append(error_registro)
+
+                # Organizar PDF sin proveedor identificado si está habilitado
+                if self.organizador:
+                    self.organizador.organizar_pdf(ruta_completa, None)
 
         self.resultados = resultados
         print(f"\n=== PROCESAMIENTO COMPLETADO ===")
@@ -1118,14 +1158,8 @@ class PDFExtractor:
                         for campo in plantilla.get('campos', [])
                     )
 
-                    if not tiene_campo_cif_cliente:
-                        # Rechazar facturas de plantillas sin CIF_Cliente
-                        motivo = f"Plantilla '{proveedor_id}' no tiene campo CIF_Cliente - no se puede validar"
-                        datos_factura['_Error'] = motivo
-                        datos_factura['_Motivo_Rechazo'] = motivo
-                        print(f"    ERROR: {motivo}")
-                        print(f"    SOLUCION: Añade el campo CIF_Cliente a la plantilla usando el editor")
-                    else:
+                    if tiene_campo_cif_cliente:
+                        # Solo validar si la plantilla tiene el campo CIF_Cliente
                         print("    Verificando CIF del cliente...")
                         cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
 
@@ -1142,10 +1176,14 @@ class PDFExtractor:
                             print(f"    WARN: Factura rechazada - CIF cliente incorrecto")
                         else:
                             datos_factura['_CIF_Valido'] = True
+                    else:
+                        # Plantilla sin CIF_Cliente: permitir procesamiento sin validación
+                        print(f"    INFO: Plantilla sin campo CIF_Cliente - omitiendo validación")
+                        datos_factura['_CIF_Valido'] = None
 
-                    # Aplicar lógica de trimestres basada en fecha de factura
+                    # Aplicar reglas de asignación de trimestre para Excel
                     if self.trimestre and self.año:
-                        self._aplicar_logica_trimestres(datos_factura)
+                        self._aplicar_reglas_asignacion_trimestre_excel(datos_factura)
 
                     facturas_extraidas.append(datos_factura)
 

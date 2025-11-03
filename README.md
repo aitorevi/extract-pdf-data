@@ -7,7 +7,7 @@ Aplicación local para extraer datos de facturas en PDF y exportarlos a Excel/CS
 ### Opción 1: Usando archivos .bat (doble clic)
 1. Doble clic en `verificar.bat`
 2. Doble clic en `editor.bat` (crear plantilla)
-3. Colocar PDFs en carpeta `facturas/`
+3. Colocar PDFs en carpeta `documentos/por_procesar/`
 4. Doble clic en `extraer.bat`
 
 ### Opción 2: Usando Python
@@ -18,7 +18,7 @@ python scripts/verificar.py
 # 2. Crear plantilla (primera vez)
 python scripts/editor.py
 
-# 3. Colocar PDFs en la carpeta facturas/
+# 3. Colocar PDFs en la carpeta documentos/por_procesar/
 
 # 4. Extraer datos
 python scripts/extraer.py
@@ -32,28 +32,37 @@ pip install -r .docs/requirements.txt
 
 Poppler ya está incluido en el proyecto (carpeta `poppler/`).
 
-## 📁 Estructura del Proyecto
+## 📁 Estructura del Proyecto (v2.0)
 
 ```
 extract-pdf-data/
-├── src/                # Código principal
-├── utils/              # Herramientas auxiliares
-├── scripts/            # Scripts de acceso rápido (.py)
-├── facturas/           # PDFs a procesar (input)
-├── plantillas/         # Plantillas JSON
-├── resultados/         # Archivos generados (output)
-├── editor.bat          # ⚡ Doble clic: Editor
-├── extraer.bat         # ⚡ Doble clic: Extraer
-└── verificar.bat       # ⚡ Doble clic: Verificar
+├── src/                      # Código principal
+├── utils/                    # Herramientas auxiliares
+├── scripts/                  # Scripts de acceso rápido (.py)
+├── documentos/               # 🆕 Directorio de documentos
+│   ├── por_procesar/         #     PDFs pendientes (input)
+│   ├── procesados/           #     PDFs organizados
+│   │   ├── facturas/         #     Exitosos (por año/mes/proveedor)
+│   │   ├── indices/          #     Índices JSON por trimestre
+│   │   ├── duplicados/       #     Facturas duplicadas
+│   │   └── errores/          #     PDFs con errores
+│   └── reportes/             #     Excel por año/trimestre (output)
+├── plantillas/               # Plantillas JSON
+├── editor.bat                # ⚡ Doble clic: Editor
+├── extraer.bat               # ⚡ Doble clic: Extraer
+└── verificar.bat             # ⚡ Doble clic: Verificar
 ```
 
 ## 📚 Documentación
 
 Toda la documentación está en la carpeta `.docs/`:
 
+- **[ESTRUCTURA_V2.md](.docs/ESTRUCTURA_V2.md)** - 🆕 Nueva estructura v2.0 (completa)
+- **[LOGICA_TRIMESTRES.md](.docs/LOGICA_TRIMESTRES.md)** - 🆕 Cálculo de trimestres
+- **[COBERTURA_TESTS.md](.docs/COBERTURA_TESTS.md)** - 🆕 Tests y cobertura
 - **[COMANDOS.txt](.docs/COMANDOS.txt)** - Cheat sheet de comandos rápidos
 - **[INSTRUCCIONES.txt](.docs/INSTRUCCIONES.txt)** - Guía completa de uso
-- **[ESTRUCTURA.md](.docs/ESTRUCTURA.md)** - Estructura detallada del proyecto
+- **[ESTRUCTURA.md](.docs/ESTRUCTURA.md)** - Estructura detallada (v1.x)
 - **[MANUAL_USUARIO.md](.docs/MANUAL_USUARIO.md)** - Manual de usuario completo
 - **[GUIA_TECNICA.md](.docs/GUIA_TECNICA.md)** - Documentación técnica
 - **[RESUMEN_REORGANIZACION.md](.docs/RESUMEN_REORGANIZACION.md)** - Cambios recientes
@@ -78,9 +87,9 @@ python scripts/extraer.py      # Procesar facturas
 
 1. **Verificar**: Doble clic en `verificar.bat`
 2. **Crear plantilla**: Doble clic en `editor.bat` (solo primera vez por cada tipo de factura)
-3. **Colocar PDFs**: en carpeta `facturas/`
+3. **Colocar PDFs**: en carpeta `documentos/por_procesar/`
 4. **Extraer datos**: Doble clic en `extraer.bat`
-5. **Ver resultados**: en carpeta `resultados/`
+5. **Ver resultados**: en carpeta `documentos/reportes/YYYY/XT/`
 
 ## 🔧 Comandos Avanzados
 
@@ -99,7 +108,7 @@ python src/main.py procesar --formato csv
 
 ```bash
 # Ver todas las palabras de un PDF (debug)
-python utils/ver_todas_palabras.py facturas/mi_factura.pdf
+python utils/ver_todas_palabras.py documentos/por_procesar/mi_factura.pdf
 
 # Copiar estructura de plantilla existente
 python utils/copiar_estructura_plantilla.py

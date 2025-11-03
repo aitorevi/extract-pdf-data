@@ -4,7 +4,14 @@
       "Bash(python:*)",
       "Bash(git commit:*)",
       "Bash(git checkout:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(if [ -d \"facturas/duplicados\" ])",
+      "Bash(then find facturas/duplicados -name \"*.pdf\" -exec sh -c 'for f; do rel=\"\"${f#facturas/duplicados/}\"\"; dest=\"\"documentos/procesados/duplicados/$rel\"\"; mkdir -p \"\"$(dirname \"\"$dest\"\")\"\"; cp \"\"$f\"\" \"\"$dest\"\"; done' sh {} +)",
+      "Bash(fi)",
+      "Bash(if [ -d \"facturas/errores\" ])",
+      "Bash(then find facturas/errores -name \"*.pdf\" -exec sh -c 'for f; do rel=\"\"${f#facturas/errores/}\"\"; dest=\"\"documentos/procesados/errores/$rel\"\"; mkdir -p \"\"$(dirname \"\"$dest\"\")\"\"; cp \"\"$f\"\" \"\"$dest\"\"; done' sh {} +)",
+      "Bash(awk:*)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": []

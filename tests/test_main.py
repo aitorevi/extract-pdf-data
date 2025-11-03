@@ -59,14 +59,12 @@ class TestVerificarEstructura:
         app = FacturaExtractorApp()
         resultado = app.verificar_estructura_proyecto()
 
-        # Debe crear facturas y resultados
-        assert (tmp_path / "facturas").exists()
-        assert (tmp_path / "resultados").exists()
+        # Debe crear documentos/por_procesar (nueva estructura v2.0)
+        assert (tmp_path / "documentos" / "por_procesar").exists()
         assert resultado is True
 
         captured = capsys.readouterr()
-        assert "Directorio creado: facturas/" in captured.out
-        assert "Directorio creado: resultados/" in captured.out
+        assert "Directorio creado: documentos/por_procesar/" in captured.out
 
     def test_verificar_estructura_detecta_falta_plantillas(self, tmp_path, monkeypatch, capsys):
         """Test que detecta cuando no hay plantillas JSON."""

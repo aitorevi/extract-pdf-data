@@ -16,9 +16,9 @@ class TestPDFExtractorInit:
     """Tests para el constructor de PDFExtractor."""
 
     def test_init_default_directories(self):
-        """Test inicialización con directorios por defecto."""
+        """Test inicialización con directorios por defecto (v2.0)."""
         extractor = PDFExtractor()
-        assert extractor.directorio_facturas == "facturas"
+        assert extractor.directorio_facturas == "documentos/por_procesar"
         assert extractor.directorio_plantillas == "plantillas"
         assert extractor.plantillas_cargadas == {}
         assert extractor.resultados == []
