@@ -317,6 +317,7 @@ class PDFOrganizer:
             True si se movió correctamente, False si hubo error
         """
         try:
+            origen_path = Path(origen)
             destino_path = Path(destino)
 
             # Crear directorio destino si no existe
@@ -333,9 +334,21 @@ class PDFOrganizer:
                     destino_path = destino_path.parent / nuevo_nombre
                     contador += 1
 
-            # Mover archivo
-            shutil.move(origen, str(destino_path))
-            return True
+            # Copiar archivo al destino
+            shutil.copy2(str(origen_path), str(destino_path))
+
+            # Verificar que la copia fue exitosa comparando tamaños
+            if origen_path.stat().st_size == destino_path.stat().st_size:
+                # Solo eliminar el original si la copia fue exitosa
+                origen_path.unlink()
+                return True
+            else:
+                print(f"❌ ERROR: La copia no coincide en tamaño: {origen} → {destino}")
+                # Eliminar copia fallida
+                if destino_path.exists():
+                    destino_path.unlink()
+                return False
+
         except Exception as e:
             print(f"❌ ERROR: No se pudo mover {origen} a {destino}: {e}")
             return False
@@ -435,6 +448,19 @@ class PDFOrganizer:
                                        str(pdf_path.parent), str(destino_dir), detalles)
                 print(f"  📋 Duplicado detectado: {nombre_archivo} → {destino_dir}")
                 return str(destino)
+            else:
+                # Si falla mover_pdf, usar shutil.move como fallback para no dejar archivos en por_procesar
+                print(f"  ⚠️ Fallo al copiar con verificación, usando movimiento directo...")
+                try:
+                    shutil.move(str(pdf_path), str(destino))
+                    self.registrar_operacion("DUPLICADO_FALLBACK", nombre_archivo,
+                                           str(pdf_path.parent), str(destino_dir),
+                                           "Movido con fallback después de fallo en copia verificada")
+                    print(f"  📋 Duplicado movido (fallback): {nombre_archivo} → {destino_dir}")
+                    return str(destino)
+                except Exception as e:
+                    print(f"  ❌ ERROR CRÍTICO: No se pudo mover {nombre_archivo}: {e}")
+                    return str(pdf_path)
 
         else:
             # Factura nueva - organizar por fecha (mes) y proveedor
@@ -463,6 +489,33 @@ class PDFOrganizer:
                                        str(pdf_path.parent), str(destino_dir), detalles)
                 print(f"  ✓ Organizado: {nombre_archivo} → {destino_dir}")
                 return str(destino)
+            else:
+                # Si falla mover_pdf, usar shutil.move como fallback para no dejar archivos en por_procesar
+                print(f"  ⚠️ Fallo al copiar con verificación, usando movimiento directo...")
+                try:
+                    destino_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(pdf_path), str(destino))
+
+                    # Intentar agregar al índice aunque el movimiento fue con fallback
+                    info_factura = {
+                        "cif_proveedor": cif_proveedor,
+                        "fecha_factura": self._normalizar_fecha(fecha_factura),
+                        "num_factura": num_factura,
+                        "nombre_archivo": nombre_archivo,
+                        "ruta_completa": str(destino),
+                        "fecha_procesamiento": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        "hash_md5": self.calcular_hash_md5(str(destino))
+                    }
+                    self.agregar_al_indice(año_indice_int, trimestre_indice, info_factura)
+
+                    self.registrar_operacion("EXITO_FALLBACK", nombre_archivo,
+                                           str(pdf_path.parent), str(destino_dir),
+                                           "Movido con fallback después de fallo en copia verificada")
+                    print(f"  ✓ Organizado (fallback): {nombre_archivo} → {destino_dir}")
+                    return str(destino)
+                except Exception as e:
+                    print(f"  ❌ ERROR CRÍTICO: No se pudo mover {nombre_archivo}: {e}")
+                    return str(pdf_path)
 
         return str(pdf_path)
 
@@ -495,6 +548,20 @@ class PDFOrganizer:
             self.registrar_operacion(tipo_log, nombre_archivo,
                                    str(pdf_path.parent), str(destino_dir), detalles)
             return str(destino)
+        else:
+            # Si falla mover_pdf, usar shutil.move como fallback para no dejar archivos en por_procesar
+            print(f"  ⚠️ Fallo al copiar con verificación, usando movimiento directo...")
+            try:
+                destino_dir.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(pdf_path), str(destino))
+                self.registrar_operacion(f"{tipo_log}_FALLBACK", nombre_archivo,
+                                       str(pdf_path.parent), str(destino_dir),
+                                       f"{detalles} - Movido con fallback después de fallo en copia verificada")
+                print(f"  ✓ Movido (fallback): {nombre_archivo} → {destino_dir}")
+                return str(destino)
+            except Exception as e:
+                print(f"  ❌ ERROR CRÍTICO: No se pudo mover {nombre_archivo}: {e}")
+                return str(pdf_path)
 
         return str(pdf_path)
 
