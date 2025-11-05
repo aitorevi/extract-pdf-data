@@ -50,6 +50,41 @@ class DataCleaner:
         return texto.strip()
 
     @staticmethod
+    def clean_invoice_number(texto: str) -> str:
+        """
+        Limpia números de factura removiendo todos los espacios y caracteres especiales.
+
+        Args:
+            texto: Texto que contiene un número de factura
+
+        Returns:
+            Número de factura sin espacios ni caracteres especiales
+
+        Examples:
+            >>> DataCleaner.clean_invoice_number("  FAC 123  ")
+            "FAC123"
+            >>> DataCleaner.clean_invoice_number("A - 2024 / 001")
+            "A-2024/001"
+            >>> DataCleaner.clean_invoice_number("N ° 1 2 3 4 5")
+            "N°12345"
+            >>> DataCleaner.clean_invoice_number(": F2025/82150")
+            "F2025/82150"
+        """
+        if not texto:
+            return ""
+
+        # Primero limpiar caracteres de control
+        texto = re.sub(r'[\x00-\x08\x0b-\x1f\x7f-\x9f]', '', texto)
+
+        # Eliminar TODOS los espacios (antes, después e intermedios)
+        texto = re.sub(r'\s+', '', texto)
+
+        # Limpiar dos puntos al inicio (común en algunos PDFs mal formateados)
+        texto = texto.lstrip(':')
+
+        return texto.strip()
+
+    @staticmethod
     def clean_date(texto: str) -> str:
         """
         Limpia y normaliza campos de fecha al formato DD/MM/YYYY.
@@ -58,6 +93,7 @@ class DataCleaner:
         - DD/MM/YYYY, DD-MM-YYYY
         - YYYY/MM/DD, YYYY-MM-DD
         - DD/MM/YY, DD-MM-YY
+        - Formato textual español: "1 de octubre de 2025"
         - Extracción de fechas dentro de texto
 
         Args:
@@ -73,12 +109,42 @@ class DataCleaner:
             "15/01/2024"
             >>> DataCleaner.clean_date("Fecha: 15/01/2024")
             "15/01/2024"
+            >>> DataCleaner.clean_date("1 de octubre de 2025")
+            "01/10/2025"
         """
         # Primero limpiar el texto
         texto = DataCleaner.clean_text(texto)
 
         if not texto:
             return ""
+
+        # Intentar parsear formato textual español: "1 de octubre de 2025"
+        meses_es = {
+            'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+            'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+            'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+        }
+
+        # Patrón: "día de mes de año"
+        patron_textual = r'(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})'
+        match = re.search(patron_textual, texto.lower())
+        if match:
+            dia = int(match.group(1))
+            mes_texto = match.group(2)
+            año = int(match.group(3))
+
+            if mes_texto in meses_es:
+                mes = meses_es[mes_texto]
+                try:
+                    # Validar la fecha
+                    fecha_obj = datetime(año, mes, dia)
+                    return fecha_obj.strftime('%d/%m/%Y')
+                except ValueError:
+                    pass  # Fecha inválida, continuar con otros métodos
+
+        # Eliminar espacios alrededor de separadores de fecha (/ y -)
+        # Esto maneja casos como "30/ 9/2025" o "30 / 9 / 2025"
+        texto = re.sub(r'\s*([/-])\s*', r'\1', texto)
 
         # Intentar parsear diferentes formatos de fecha
         formatos = [

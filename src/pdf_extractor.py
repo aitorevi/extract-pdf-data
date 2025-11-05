@@ -65,27 +65,31 @@ class PDFExtractor:
         Parsea un string de trimestre a número entero.
 
         Args:
-            trimestre_str (str): String como "1T", "2T" o "1", "2"
+            trimestre_str (str): String como "1T", "2T", "Q1", "Q2" o "1", "2"
 
         Returns:
             int: Número de trimestre (1, 2, 3 o 4)
         """
-        # Eliminar la "T" si existe
-        trimestre_str = trimestre_str.upper().replace("T", "")
+        # Normalizar a mayúsculas
+        trimestre_str = trimestre_str.upper().strip()
+
+        # Eliminar prefijos "T" o "Q"
+        trimestre_str = trimestre_str.replace("T", "").replace("Q", "")
+
         return int(trimestre_str)
 
     @staticmethod
     def formatear_trimestre(numero: int) -> str:
         """
-        Formatea un número de trimestre al formato estándar con T.
+        Formatea un número de trimestre como string numérico para Excel.
 
         Args:
             numero (int): Número de trimestre (1, 2, 3 o 4)
 
         Returns:
-            str: Trimestre formateado (ej: "1T", "2T")
+            str: Trimestre como número (ej: "1", "2", "3", "4")
         """
-        return f"{numero}T"
+        return str(numero)
 
     @staticmethod
     def determinar_trimestre_para_exportacion_excel(fecha_factura: datetime,
@@ -311,21 +315,32 @@ class PDFExtractor:
                                 # Usar OCR para extraer de área específica
                                 texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=1)
                                 texto = texto.strip()
+                                metodo = "OCR"
                             else:
                                 # Extracción normal con pdfplumber
                                 area_recortada = pagina.crop(bbox)
                                 texto = area_recortada.extract_text() or ""
                                 texto = texto.strip()
+                                metodo = "directo"
+
+                                # FALLBACK: Si no se extrajo texto y OCR está disponible, intentar con OCR
+                                # Esto maneja PDFs híbridos (cabecera en imagen, cuerpo en texto)
+                                if not texto and self.ocr_disponible:
+                                    try:
+                                        print(f"    [FALLBACK] Área sin texto extraíble, intentando OCR...")
+                                        texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=1)
+                                        texto = texto.strip()
+                                        metodo = "OCR (fallback)"
+                                    except Exception as e_ocr:
+                                        print(f"    [FALLBACK] Error con OCR: {e_ocr}")
 
                             if nombre_campo == 'CIF_Identificacion':
                                 # Sanear CIF usando el Value Object
                                 cif_obj = CIF(texto)
                                 cif_extraido = cif_obj.value
-                                metodo = "OCR" if usa_ocr else "directo"
                                 print(f"    CIF extraído ({metodo}): {texto} -> normalizado: {cif_extraido}")
                             elif nombre_campo == 'Nombre_Identificacion':
                                 nombre_extraido = texto.lower()
-                                metodo = "OCR" if usa_ocr else "directo"
                                 print(f"    Nombre extraído ({metodo}): {nombre_extraido}")
                         except Exception as e:
                             print(f"    Error extrayendo {nombre_campo}: {e}")
@@ -403,13 +418,15 @@ class PDFExtractor:
 
         return similitud
 
-    def _extraer_cif_cliente(self, pdf: Any, plantilla: Dict) -> Optional[str]:
+    def _extraer_cif_cliente(self, pdf: Any, plantilla: Dict, ruta_pdf: str = None, usa_ocr: bool = False) -> Optional[str]:
         """
         Extrae el CIF del cliente desde el PDF usando los campos de identificación.
 
         Args:
             pdf: Objeto PDF de pdfplumber
             plantilla: Plantilla con campos definidos
+            ruta_pdf: Ruta al archivo PDF (requerido si usa_ocr=True)
+            usa_ocr: Si True, usa OCR para extraer texto
 
         Returns:
             CIF del cliente normalizado o None si no se encuentra
@@ -432,13 +449,23 @@ class PDFExtractor:
                             continue
 
                         bbox = tuple(coordenadas)
-                        area_recortada = page.crop(bbox)
-                        texto = area_recortada.extract_text() or ""
+
+                        if usa_ocr:
+                            # Usar OCR para extraer texto
+                            if not ruta_pdf:
+                                print("    Error: ruta_pdf es requerida para OCR")
+                                continue
+                            texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=pagina_num)
+                        else:
+                            # Extracción normal con pdfplumber
+                            area_recortada = page.crop(bbox)
+                            texto = area_recortada.extract_text() or ""
 
                         if texto:
                             # Sanear el CIF usando el Value Object
                             cif = CIF(texto.strip())
-                            print(f"    CIF Cliente extraído: '{texto.strip()}' -> normalizado: '{cif.value}'")
+                            metodo = "OCR" if usa_ocr else "directo"
+                            print(f"    CIF Cliente extraído ({metodo}): '{texto.strip()}' -> normalizado: '{cif.value}'")
                             return cif.value
 
                     except Exception as e:
@@ -633,10 +660,13 @@ class PDFExtractor:
         # Limpiar CIF del proveedor usando la clase CIF para eliminar guiones, puntos, etc.
         cif_proveedor_limpio = CIF(plantilla.get('cif_proveedor', '')).value
 
+        # Convertir trimestre a formato numérico (sin "T") para Excel
+        trimestre_numerico = str(self.parsear_trimestre(self.trimestre)) if self.trimestre else ''
+
         datos_factura = {
             'CIF': cif_proveedor_limpio,  # CIF del proveedor limpio (sin guiones ni puntos)
             'FechaFactura': '',
-            'Trimestre': self.trimestre,
+            'Trimestre': trimestre_numerico,
             'Año': self.año,
             'FechaVto': '',
             'NumFactura': '',
@@ -659,6 +689,19 @@ class PDFExtractor:
                 # Procesar primera página (asumimos datos en primera página)
                 pagina = pdf.pages[0]
 
+                # Detectar si el PDF tiene texto extraíble
+                usa_ocr = False
+                if not tiene_texto_extraible(pagina):
+                    if self.ocr_disponible:
+                        print("  [OCR] PDF sin texto extraíble, usando OCR para extracción...")
+                        usa_ocr = True
+                        datos_factura['_UsaOCR'] = True
+                    else:
+                        print("  ⚠️ PDF sin texto extraíble y OCR no disponible")
+                        raise Exception("PDF escaneado sin OCR disponible")
+                else:
+                    datos_factura['_UsaOCR'] = False
+
                 campos_extraidos_exitosamente = 0
 
                 for campo in plantilla['campos']:
@@ -667,16 +710,26 @@ class PDFExtractor:
                     tipo_campo = campo.get('tipo', 'texto')
 
                     try:
-                        # Extraer texto usando coordenadas (bbox)
+                        # Extraer texto según disponibilidad
                         bbox = tuple(coordenadas)  # (x1, y1, x2, y2)
-                        area_recortada = pagina.crop(bbox)
-                        texto_extraido = area_recortada.extract_text()
+
+                        if usa_ocr:
+                            # Usar OCR para extraer de área específica
+                            texto_extraido = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=1)
+                        else:
+                            # Extracción normal con pdfplumber
+                            area_recortada = pagina.crop(bbox)
+                            texto_extraido = area_recortada.extract_text()
 
                         # Limpiar y procesar según tipo
                         valor_procesado = self.procesar_campo(texto_extraido, tipo_campo)
 
                         # Mapear nombre de campo de plantilla a nombre de columna estándar
                         nombre_columna = self.MAPEO_CAMPOS.get(nombre_campo_plantilla, nombre_campo_plantilla)
+
+                        # Limpieza adicional específica para NumFactura: eliminar todos los espacios
+                        if nombre_columna == 'NumFactura' and valor_procesado:
+                            valor_procesado = DataCleaner.clean_invoice_number(valor_procesado)
 
                         # Solo actualizar si es un campo estándar
                         if nombre_columna in datos_factura:
@@ -710,7 +763,7 @@ class PDFExtractor:
                 if tiene_campo_cif_cliente:
                     # Solo validar si la plantilla tiene el campo CIF_Cliente
                     print("  Verificando CIF del cliente...")
-                    cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
+                    cif_cliente = self._extraer_cif_cliente(pdf, plantilla, ruta_pdf=ruta_pdf, usa_ocr=usa_ocr)
 
                     # Guardar CIF del cliente como campo interno (no se exporta)
                     datos_factura['_CIF_Cliente'] = cif_cliente if cif_cliente else ""
@@ -927,13 +980,17 @@ class PDFExtractor:
 
     # ==================== MÉTODOS PARA SOPORTE MULTIPÁGINA ====================
 
-    def extraer_num_factura_de_pagina(self, pagina, plantilla: Dict) -> Optional[str]:
+    def extraer_num_factura_de_pagina(self, pagina, plantilla: Dict, ruta_pdf: str = None,
+                                       pagina_num: int = None, usa_ocr: bool = False) -> Optional[str]:
         """
         Extrae el número de factura de una página específica según la plantilla.
 
         Args:
             pagina: Objeto página de pdfplumber
             plantilla (Dict): Plantilla del proveedor
+            ruta_pdf (str): Ruta al archivo PDF (requerido si usa_ocr=True)
+            pagina_num (int): Número de página 1-indexed (requerido si usa_ocr=True)
+            usa_ocr (bool): Si True, usa OCR para extraer texto
 
         Returns:
             Optional[str]: Número de factura o None si no se encuentra
@@ -949,12 +1006,21 @@ class PDFExtractor:
                 try:
                     coordenadas = campo['coordenadas']
                     bbox = tuple(coordenadas)
-                    area_recortada = pagina.crop(bbox)
-                    texto_extraido = area_recortada.extract_text()
+
+                    if usa_ocr:
+                        # Usar OCR para extraer texto
+                        if not ruta_pdf or pagina_num is None:
+                            print("  Error: ruta_pdf y pagina_num son requeridos para OCR")
+                            return None
+                        texto_extraido = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=pagina_num)
+                    else:
+                        # Extracción normal con pdfplumber
+                        area_recortada = pagina.crop(bbox)
+                        texto_extraido = area_recortada.extract_text()
 
                     if texto_extraido:
-                        # Limpiar y procesar el número de factura
-                        num_factura = self.limpiar_texto(texto_extraido)
+                        # Limpiar y procesar el número de factura (eliminar todos los espacios)
+                        num_factura = DataCleaner.clean_invoice_number(texto_extraido)
 
                         # Validar que no sea texto basura
                         if num_factura and self._es_numfactura_valido(num_factura):
@@ -997,13 +1063,39 @@ class PDFExtractor:
             'total',
             'subtotal',
             'n/a',
-            'sin número'
+            'sin número',
+            'importe',
+            'ación',
+            'descripción',
+            'cantidad',
+            'precio',
+            'concepto',
+            'detalle',
+            'base',
+            'iva',
         ]
 
         # Si contiene alguna palabra inválida, no es válido
         for palabra in palabras_invalidas:
             if palabra in texto_lower:
                 return False
+
+        # Validar que contenga al menos un dígito o caracteres típicos de facturas
+        # Los números de factura típicamente incluyen números, letras, guiones, barras
+        tiene_numero = bool(re.search(r'\d', num_factura))
+        tiene_letra_o_numero = bool(re.search(r'[a-zA-Z0-9]', num_factura))
+
+        # Debe tener al menos un número Y (letras o números)
+        if not (tiene_numero and tiene_letra_o_numero):
+            return False
+
+        # Rechazar si es solo texto sin formato de factura
+        # Un número de factura válido debería tener números y posiblemente letras/símbolos
+        # pero no ser solo palabras sueltas
+        palabras = re.findall(r'[a-záéíóúñ]{4,}', texto_lower)
+        if len(palabras) > 0:
+            # Si tiene palabras largas (4+ letras), probablemente no es un número de factura
+            return False
 
         return True
 
@@ -1080,19 +1172,35 @@ class PDFExtractor:
                 if not pdf.pages:
                     raise Exception("PDF sin páginas")
 
+                # Detectar si el PDF tiene texto extraíble (usar primera página como muestra)
+                usa_ocr = False
+                if not tiene_texto_extraible(pdf.pages[0]):
+                    if self.ocr_disponible:
+                        print("  [OCR] PDF sin texto extraíble, usando OCR para extracción multipágina...")
+                        usa_ocr = True
+                    else:
+                        print("  ⚠️ PDF sin texto extraíble y OCR no disponible")
+                        raise Exception("PDF escaneado sin OCR disponible")
+
                 # Paso 1: Extraer NumFactura de cada página
                 print(f"  Analizando {len(pdf.pages)} página(s)...")
                 paginas_data = []
 
                 for i, pagina in enumerate(pdf.pages):
-                    num_factura = self.extraer_num_factura_de_pagina(pagina, plantilla)
+                    num_factura = self.extraer_num_factura_de_pagina(
+                        pagina, plantilla,
+                        ruta_pdf=ruta_pdf,
+                        pagina_num=i+1,  # 1-indexed
+                        usa_ocr=usa_ocr
+                    )
                     paginas_data.append({
                         'pagina_num': i,
                         'NumFactura': num_factura,
                         'page_obj': pagina
                     })
+                    metodo = "OCR" if usa_ocr else "directo"
                     if num_factura:
-                        print(f"    Página {i+1}: NumFactura = {num_factura}")
+                        print(f"    Página {i+1}: NumFactura = {num_factura} ({metodo})")
                     else:
                         print(f"    Página {i+1}: NumFactura no encontrado (ERROR)")
 
@@ -1125,11 +1233,14 @@ class PDFExtractor:
                     # Limpiar CIF del proveedor usando la clase CIF para eliminar guiones, puntos, etc.
                     cif_proveedor_limpio = CIF(plantilla.get('cif_proveedor', '')).value
 
+                    # Convertir trimestre a formato numérico (sin "T") para Excel
+                    trimestre_numerico = str(self.parsear_trimestre(self.trimestre)) if self.trimestre else ''
+
                     # Extraer datos de la última página
                     datos_factura = {
                         'CIF': cif_proveedor_limpio,  # CIF del proveedor limpio (sin guiones ni puntos)
                         'FechaFactura': '',
-                        'Trimestre': self.trimestre,
+                        'Trimestre': trimestre_numerico,
                         'Año': self.año,
                         'FechaVto': '',
                         'NumFactura': num_factura,
@@ -1145,6 +1256,7 @@ class PDFExtractor:
                     datos_factura['_Pagina'] = num_pagina + 1
                     datos_factura['_Total_Paginas'] = len(paginas_grupo)
                     datos_factura['_Fecha_Procesamiento'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    datos_factura['_UsaOCR'] = usa_ocr
 
                     campos_extraidos_exitosamente = 0
 
@@ -1156,14 +1268,26 @@ class PDFExtractor:
 
                         try:
                             bbox = tuple(coordenadas)
-                            area_recortada = pagina.crop(bbox)
-                            texto_extraido = area_recortada.extract_text()
+
+                            if usa_ocr:
+                                # Usar OCR para extraer de área específica
+                                texto_extraido = self.ocr.extraer_texto_area(
+                                    ruta_pdf, bbox, pagina_num=num_pagina+1
+                                )
+                            else:
+                                # Extracción normal con pdfplumber
+                                area_recortada = pagina.crop(bbox)
+                                texto_extraido = area_recortada.extract_text()
 
                             # Limpiar y procesar según tipo
                             valor_procesado = self.procesar_campo(texto_extraido, tipo_campo)
 
                             # Mapear nombre de campo
                             nombre_columna = self.MAPEO_CAMPOS.get(nombre_campo_plantilla, nombre_campo_plantilla)
+
+                            # Limpieza adicional específica para NumFactura: eliminar todos los espacios
+                            if nombre_columna == 'NumFactura' and valor_procesado:
+                                valor_procesado = DataCleaner.clean_invoice_number(valor_procesado)
 
                             # Actualizar si es un campo estándar
                             if nombre_columna in datos_factura:
@@ -1193,7 +1317,7 @@ class PDFExtractor:
                     if tiene_campo_cif_cliente:
                         # Solo validar si la plantilla tiene el campo CIF_Cliente
                         print("    Verificando CIF del cliente...")
-                        cif_cliente = self._extraer_cif_cliente(pdf, plantilla)
+                        cif_cliente = self._extraer_cif_cliente(pdf, plantilla, ruta_pdf=ruta_pdf, usa_ocr=usa_ocr)
 
                         # Guardar CIF del cliente como campo interno (no se exporta)
                         datos_factura['_CIF_Cliente'] = cif_cliente if cif_cliente else ""

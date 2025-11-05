@@ -229,10 +229,11 @@ class TestLimpiarFecha:
         assert resultado == "15/03/2024"
 
     def test_limpiar_fecha_formato_texto(self):
-        """Test limpieza de fecha en formato texto."""
+        """Test limpieza de fecha en formato texto español."""
         extractor = PDFExtractor()
         resultado = extractor.limpiar_fecha("15 de marzo de 2024")
-        assert "15 de marzo de 2024" in resultado
+        # Ahora soportamos conversión de fechas textuales en español a DD/MM/YYYY
+        assert resultado == "15/03/2024"
 
     def test_limpiar_fecha_sin_patron(self):
         """Test cuando no se encuentra patrón de fecha."""
