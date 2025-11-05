@@ -15,6 +15,14 @@ from src.utils.cif import CIF
 from src.utils.pdf_text_detector import tiene_texto_extraible
 from src.utils.ocr_engine import OCREngine
 
+# Import opcional de LLM extractor (fallback si no hay plantilla o plantilla falla)
+try:
+    from src.utils.llm_extractor import LLMExtractor
+    LLM_DISPONIBLE = True
+except ImportError:
+    LLM_DISPONIBLE = False
+    print("AVISO: LLM extractor no disponible (instalar: pip install openai)")
+
 
 class PDFExtractor:
     # Mapeo de nombres de campos en plantillas a nombres de columnas estándar
@@ -141,7 +149,8 @@ class PDFExtractor:
 
     def __init__(self, directorio_facturas: str = "documentos/por_procesar",
                  directorio_plantillas: str = "plantillas",
-                 trimestre: str = "", año: str = "", organizar_archivos: bool = True):
+                 trimestre: str = "", año: str = "", organizar_archivos: bool = True,
+                 usar_llm_fallback: bool = True):
         """
         Inicializa el extractor de PDF.
 
@@ -157,6 +166,8 @@ class PDFExtractor:
             trimestre (str): Trimestre fiscal (1T, 2T, 3T, 4T)
             año (str): Año fiscal
             organizar_archivos (bool): Si True, organiza PDFs automáticamente después de procesar
+            usar_llm_fallback (bool): Si True, usa LLM como fallback cuando no hay plantilla o falla
+                                      (requiere API key de OpenAI en variable OPENAI_API_KEY)
         """
         self.directorio_facturas = directorio_facturas
         self.directorio_plantillas = directorio_plantillas
@@ -166,6 +177,16 @@ class PDFExtractor:
         self.trimestre = trimestre
         self.año = año
         self.organizar_archivos = organizar_archivos
+        self.usar_llm_fallback = usar_llm_fallback
+
+        # Métricas de uso (template vs LLM)
+        self.metricas = {
+            'total_procesadas': 0,
+            'extracciones_template': 0,
+            'extracciones_llm': 0,
+            'fallbacks_activados': 0,
+            'proveedores_sin_plantilla': 0
+        }
 
         # Inicializar organizador de archivos si está habilitado
         if self.organizar_archivos:
@@ -181,6 +202,20 @@ class PDFExtractor:
         # Inicializar motor OCR (inglés por defecto, funciona bien para español también)
         self.ocr = OCREngine(idioma='eng')
         self.ocr_disponible = self.ocr.is_available()
+
+        # Inicializar LLM extractor si está disponible y habilitado
+        self.llm_extractor = None
+        if self.usar_llm_fallback and LLM_DISPONIBLE:
+            try:
+                self.llm_extractor = LLMExtractor()
+                print("✓ LLM fallback habilitado (GPT-4o mini)")
+            except Exception as e:
+                print(f"⚠️  No se pudo inicializar LLM fallback: {e}")
+                print("   Tip: Establece variable de entorno OPENAI_API_KEY")
+                self.llm_extractor = None
+        elif self.usar_llm_fallback and not LLM_DISPONIBLE:
+            print("⚠️  LLM fallback solicitado pero módulo no disponible")
+            print("   Instala con: pip install openai")
 
     def cargar_plantillas(self) -> bool:
         """
@@ -867,78 +902,162 @@ class PDFExtractor:
             # Identificar proveedor
             proveedor_id = self.identificar_proveedor(ruta_completa)
 
+            # Variable para almacenar si se usó LLM
+            uso_llm = False
+            lista_datos = None
+
             if proveedor_id:
                 try:
                     # Usar método multipágina que extrae de la última página de cada factura
                     lista_datos = self.extraer_datos_factura_multipagina(ruta_completa, proveedor_id)
+                    self.metricas['extracciones_template'] += 1
 
-                    # Procesar cada factura extraída del PDF
-                    for datos in lista_datos:
-                        # Procesar campos auxiliares (ej: sumar Portes a Base)
-                        datos = self._procesar_campos_auxiliares(datos)
-
-                        # Verificar duplicados usando CIF + NumFactura + FechaFactura
-                        clave_duplicado = (
-                            datos.get('CIF', ''),
-                            datos.get('NumFactura', ''),
-                            datos.get('FechaFactura', '')
-                        )
-
-                        if clave_duplicado in facturas_procesadas:
-                            print(f"WARN Factura duplicada detectada (CIF: {datos.get('CIF')}, Num: {datos.get('NumFactura')}, Fecha: {datos.get('FechaFactura')})")
-                            # Marcar como duplicado en metadatos
-                            datos['_Duplicado'] = True
-                            datos['_Motivo_Duplicado'] = f"Ya existe factura con mismo CIF, NumFactura y FechaFactura"
-                        else:
-                            facturas_procesadas.add(clave_duplicado)
-                            datos['_Duplicado'] = False
-
-                        resultados.append(datos)
-
-                    print(f"OK Procesado exitosamente ({len(lista_datos)} factura(s))")
-
-                    # Organizar archivo PDF si está habilitado
-                    if self.organizador:
-                        # Usar los datos de la primera factura (en caso de múltiples facturas en un PDF)
-                        # Si hay error en alguna factura, usar None
-                        datos_para_organizar = lista_datos[0] if lista_datos else None
-                        self.organizador.organizar_pdf(ruta_completa, datos_para_organizar)
                 except Exception as e:
-                    print(f"ERROR procesando: {e}")
-                    # Registrar en log de errores, NO en resultados
+                    print(f"ERROR procesando con plantilla: {e}")
+
+                    # FALLBACK: Intentar con LLM si está disponible
+                    if self.llm_extractor:
+                        print(f"  [FALLBACK] Intentando extracción con LLM...")
+                        try:
+                            datos_llm = self.llm_extractor.extraer_datos(ruta_completa)
+                            # Agregar trimestre y año del usuario
+                            datos_llm['Trimestre'] = str(self.parsear_trimestre(self.trimestre)) if self.trimestre else datos_llm.get('Trimestre', '')
+                            datos_llm['Año'] = self.año if self.año else datos_llm.get('Año', '')
+                            lista_datos = [datos_llm]
+                            uso_llm = True
+                            self.metricas['fallbacks_activados'] += 1
+                            self.metricas['extracciones_llm'] += 1
+                            print(f"  [FALLBACK] ✓ Extracción con LLM exitosa")
+                        except Exception as e_llm:
+                            print(f"  [FALLBACK] ✗ Error con LLM: {e_llm}")
+                            # Registrar error
+                            error_registro = {
+                                'Archivo': archivo_pdf,
+                                'Pagina': 'N/A',
+                                'Error': f'Error con plantilla Y con LLM: {str(e)} | {str(e_llm)}',
+                                'Proveedor': proveedor_id,
+                                'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            }
+                            self.errores.append(error_registro)
+                            if self.organizador:
+                                self.organizador.organizar_pdf(ruta_completa, None)
+                            continue
+                    else:
+                        # Sin LLM fallback disponible, registrar error
+                        error_registro = {
+                            'Archivo': archivo_pdf,
+                            'Pagina': 'N/A',
+                            'Error': f'Error al procesar factura: {str(e)}',
+                            'Proveedor': proveedor_id,
+                            'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                        self.errores.append(error_registro)
+                        if self.organizador:
+                            self.organizador.organizar_pdf(ruta_completa, None)
+                        continue
+
+            else:
+                # No se identificó proveedor (no hay plantilla)
+                # FALLBACK: Usar LLM si está disponible
+                if self.llm_extractor:
+                    print(f"  Proveedor no identificado, usando LLM...")
+                    try:
+                        datos_llm = self.llm_extractor.extraer_datos(ruta_completa)
+                        # Agregar trimestre y año del usuario
+                        datos_llm['Trimestre'] = str(self.parsear_trimestre(self.trimestre)) if self.trimestre else datos_llm.get('Trimestre', '')
+                        datos_llm['Año'] = self.año if self.año else datos_llm.get('Año', '')
+                        lista_datos = [datos_llm]
+                        uso_llm = True
+                        self.metricas['proveedores_sin_plantilla'] += 1
+                        self.metricas['extracciones_llm'] += 1
+                        print(f"  [LLM] ✓ Extracción exitosa (proveedor sin plantilla)")
+                    except Exception as e_llm:
+                        print(f"  [LLM] ✗ Error: {e_llm}")
+                        error_registro = {
+                            'Archivo': archivo_pdf,
+                            'Pagina': 'N/A',
+                            'Error': f'Proveedor no identificado y error con LLM: {str(e_llm)}',
+                            'Proveedor': 'NO_IDENTIFICADO',
+                            'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                        self.errores.append(error_registro)
+                        if self.organizador:
+                            self.organizador.organizar_pdf(ruta_completa, None)
+                        continue
+                else:
+                    # Sin plantilla y sin LLM disponible
+                    print(f"ERROR Proveedor no identificado (sin LLM fallback)")
                     error_registro = {
                         'Archivo': archivo_pdf,
                         'Pagina': 'N/A',
-                        'Error': f'Error al procesar factura: {str(e)}',
-                        'Proveedor': proveedor_id,
+                        'Error': 'Proveedor no identificado - no hay plantilla que coincida',
+                        'Proveedor': 'NO_IDENTIFICADO',
                         'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     self.errores.append(error_registro)
-
-                    # Organizar PDF con error si está habilitado
                     if self.organizador:
                         self.organizador.organizar_pdf(ruta_completa, None)
-            else:
-                print(f"ERROR Proveedor no identificado")
-                # Registrar en log de errores, NO en resultados
-                error_registro = {
-                    'Archivo': archivo_pdf,
-                    'Pagina': 'N/A',
-                    'Error': 'Proveedor no identificado - no hay plantilla que coincida',
-                    'Proveedor': 'NO_IDENTIFICADO',
-                    'Fecha_Procesamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                }
-                self.errores.append(error_registro)
+                    continue
 
-                # Organizar PDF sin proveedor identificado si está habilitado
+            # Procesar cada factura extraída (ya sea por template o LLM)
+            if lista_datos:
+                for datos in lista_datos:
+                    # Procesar campos auxiliares (ej: sumar Portes a Base)
+                    datos = self._procesar_campos_auxiliares(datos)
+
+                    # Verificar duplicados usando CIF + NumFactura + FechaFactura
+                    clave_duplicado = (
+                        datos.get('CIF', ''),
+                        datos.get('NumFactura', ''),
+                        datos.get('FechaFactura', '')
+                    )
+
+                    if clave_duplicado in facturas_procesadas:
+                        print(f"WARN Factura duplicada detectada (CIF: {datos.get('CIF')}, Num: {datos.get('NumFactura')}, Fecha: {datos.get('FechaFactura')})")
+                        datos['_Duplicado'] = True
+                        datos['_Motivo_Duplicado'] = f"Ya existe factura con mismo CIF, NumFactura y FechaFactura"
+                    else:
+                        facturas_procesadas.add(clave_duplicado)
+                        datos['_Duplicado'] = False
+
+                    resultados.append(datos)
+                    self.metricas['total_procesadas'] += 1
+
+                metodo = "LLM" if uso_llm else "template"
+                print(f"OK Procesado exitosamente con {metodo} ({len(lista_datos)} factura(s))")
+
+                # Organizar archivo PDF si está habilitado
                 if self.organizador:
-                    self.organizador.organizar_pdf(ruta_completa, None)
+                    datos_para_organizar = lista_datos[0] if lista_datos else None
+                    self.organizador.organizar_pdf(ruta_completa, datos_para_organizar)
 
         self.resultados = resultados
         print(f"\n=== PROCESAMIENTO COMPLETADO ===")
         print(f"Total facturas procesadas: {len(resultados)}")
 
+        # Mostrar métricas de uso si LLM está habilitado
+        if self.usar_llm_fallback and self.metricas['total_procesadas'] > 0:
+            self._mostrar_metricas()
+
         return resultados
+
+    def _mostrar_metricas(self):
+        """Muestra métricas de uso de templates vs LLM."""
+        print(f"\n=== MÉTRICAS DE EXTRACCIÓN ===")
+        print(f"Total procesadas: {self.metricas['total_procesadas']}")
+        print(f"  • Con template (coordenadas): {self.metricas['extracciones_template']}")
+        print(f"  • Con LLM (IA): {self.metricas['extracciones_llm']}")
+        print(f"  • Fallbacks activados: {self.metricas['fallbacks_activados']}")
+        print(f"  • Proveedores sin plantilla: {self.metricas['proveedores_sin_plantilla']}")
+
+        if self.metricas['total_procesadas'] > 0:
+            pct_template = (self.metricas['extracciones_template'] / self.metricas['total_procesadas']) * 100
+            pct_llm = (self.metricas['extracciones_llm'] / self.metricas['total_procesadas']) * 100
+            print(f"\nDistribución: {pct_template:.1f}% template | {pct_llm:.1f}% LLM")
+
+            # Estimación de costos (asumiendo $0.0025 por factura con GPT-4o mini)
+            costo_estimado = self.metricas['extracciones_llm'] * 0.0025
+            print(f"Costo estimado API: ${costo_estimado:.4f}")
 
     def obtener_estadisticas(self) -> Dict[str, Any]:
         """
