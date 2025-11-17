@@ -181,7 +181,7 @@ class OCREngine:
             return []
 
     def extraer_texto_area(self, pdf_path: str, bbox: Tuple[float, float, float, float],
-                          pagina_num: int = 1, dpi: int = 300) -> str:
+                          pagina_num: int = 1, dpi: int = 300, padding: int = 5) -> str:
         """
         Extrae texto de un área específica del PDF usando OCR.
 
@@ -190,6 +190,8 @@ class OCREngine:
             bbox: Tupla (x0, top, x1, bottom) con coordenadas del área en puntos PDF (72 DPI)
             pagina_num: Número de página (1-indexed)
             dpi: DPI usado para generar la imagen (default: 300)
+            padding: Píxeles de margen a añadir alrededor del área (default: 5)
+                    Ayuda a compensar desplazamientos en la conversión PDF->imagen
 
         Returns:
             Texto extraído del área
@@ -208,6 +210,12 @@ class OCREngine:
             top_img = int(top * escala)
             x1_img = int(x1 * escala)
             bottom_img = int(bottom * escala)
+
+            # Añadir padding para compensar desplazamientos en OCR
+            x0_img = max(0, x0_img - padding)
+            top_img = max(0, top_img - padding)
+            x1_img = min(imagen.width, x1_img + padding)
+            bottom_img = min(imagen.height, bottom_img + padding)
 
             # Recortar área (PIL usa: left, top, right, bottom)
             area_recortada = imagen.crop((x0_img, top_img, x1_img, bottom_img))

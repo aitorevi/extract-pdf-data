@@ -345,6 +345,10 @@ class TestMultipaginaPDF:
         for i, (num_fac, base) in enumerate(zip(numeros_factura, bases)):
             mock_page = MagicMock()
 
+            # Mock extract_words para que tiene_texto_extraible devuelva True
+            mock_page.extract_words.return_value = [{'text': 'word1'}, {'text': 'word2'}, {'text': 'word3'},
+                                                      {'text': 'word4'}, {'text': 'word5'}, {'text': 'word6'}]
+
             def make_crop_side_effect(num_f, b):
                 def crop_side_effect(bbox):
                     mock_crop = MagicMock()

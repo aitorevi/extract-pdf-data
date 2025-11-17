@@ -65,6 +65,40 @@ class TestCleanDate:
         """Test fecha con espacios extra."""
         assert DataCleaner.clean_date("  15/01/2024  ") == "15/01/2024"
 
+    def test_clean_date_formato_mes_abreviado(self):
+        """Test fecha con mes abreviado: 31 jul 2025."""
+        assert DataCleaner.clean_date("31 jul 2025") == "31/07/2025"
+
+    def test_clean_date_formato_mes_abreviado_mayusculas(self):
+        """Test fecha con mes abreviado en mayúsculas."""
+        assert DataCleaner.clean_date("31 JUL 2025") == "31/07/2025"
+        assert DataCleaner.clean_date("31 Jul 2025") == "31/07/2025"
+
+    def test_clean_date_todos_meses_abreviados(self):
+        """Test todos los meses abreviados."""
+        assert DataCleaner.clean_date("1 ene 2025") == "01/01/2025"
+        assert DataCleaner.clean_date("15 feb 2025") == "15/02/2025"
+        assert DataCleaner.clean_date("10 mar 2025") == "10/03/2025"
+        assert DataCleaner.clean_date("20 abr 2025") == "20/04/2025"
+        assert DataCleaner.clean_date("5 may 2025") == "05/05/2025"
+        assert DataCleaner.clean_date("30 jun 2025") == "30/06/2025"
+        assert DataCleaner.clean_date("31 jul 2025") == "31/07/2025"
+        assert DataCleaner.clean_date("15 ago 2025") == "15/08/2025"
+        assert DataCleaner.clean_date("1 sep 2025") == "01/09/2025"
+        assert DataCleaner.clean_date("15 oct 2024") == "15/10/2024"
+        assert DataCleaner.clean_date("20 nov 2024") == "20/11/2024"
+        assert DataCleaner.clean_date("25 dic 2024") == "25/12/2024"
+
+    def test_clean_date_formato_mes_completo(self):
+        """Test fecha con mes completo."""
+        assert DataCleaner.clean_date("31 julio 2025") == "31/07/2025"
+        assert DataCleaner.clean_date("15 octubre 2024") == "15/10/2024"
+
+    def test_clean_date_formato_textual_largo(self):
+        """Test formato textual largo: 1 de octubre de 2025."""
+        assert DataCleaner.clean_date("1 de octubre de 2025") == "01/10/2025"
+        assert DataCleaner.clean_date("15 de enero de 2024") == "15/01/2024"
+
 
 @pytest.mark.unit
 class TestCleanNumeric:

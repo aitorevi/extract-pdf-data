@@ -55,6 +55,8 @@ extract-pdf-data/
 
 ## 📚 Documentación
 
+### Documentación General
+
 Toda la documentación está en la carpeta `.docs/`:
 
 - **[ESTRUCTURA_V2.md](.docs/ESTRUCTURA_V2.md)** - 🆕 Nueva estructura v2.0 (completa)
@@ -66,6 +68,12 @@ Toda la documentación está en la carpeta `.docs/`:
 - **[MANUAL_USUARIO.md](.docs/MANUAL_USUARIO.md)** - Manual de usuario completo
 - **[GUIA_TECNICA.md](.docs/GUIA_TECNICA.md)** - Documentación técnica
 - **[RESUMEN_REORGANIZACION.md](.docs/RESUMEN_REORGANIZACION.md)** - Cambios recientes
+
+### Guías de Plantillas
+
+- **[GUIA_ATRIBUTO_PAGINA.md](GUIA_ATRIBUTO_PAGINA.md)** - 🆕 Cuándo usar el atributo "pagina" en templates
+- **[COMO_USAR_ATRIBUTO_PAGINA_EN_EDITOR.md](COMO_USAR_ATRIBUTO_PAGINA_EN_EDITOR.md)** - 🆕 Uso del editor con páginas múltiples
+- **[README_SISTEMA_HIBRIDO.md](README_SISTEMA_HIBRIDO.md)** - Sistema híbrido Templates + LLM
 
 ## 🚀 Uso
 

@@ -4,6 +4,7 @@ Utilidad para detectar si un PDF tiene texto extraíble.
 
 from typing import Optional
 import pdfplumber
+import re
 
 
 def tiene_texto_extraible(pdf_page, umbral_palabras: int = 5) -> bool:
@@ -92,3 +93,76 @@ def diagnosticar_pdf(pdf_path: str) -> dict:
         print(f"Error diagnosticando PDF: {e}")
 
     return resultado
+
+
+def tiene_texto_corrupto_cid(texto: str, umbral_porcentaje: float = 10.0) -> bool:
+    """
+    Detecta si un texto contiene códigos CID (Character ID) que indican
+    fuentes embebidas sin mapeo Unicode correcto.
+
+    Los códigos CID aparecen como: (cid:123) o similares y hacen que el texto
+    sea ilegible aunque técnicamente sea "extraíble".
+
+    Args:
+        texto (str): Texto extraído del PDF
+        umbral_porcentaje (float): Porcentaje mínimo de caracteres CID para
+                                   considerar el texto como corrupto (default: 10%)
+
+    Returns:
+        bool: True si el texto contiene códigos CID significativos, False si es legible
+
+    Ejemplos:
+        >>> tiene_texto_corrupto_cid("(cid:24)(cid:1)(cid:23)(cid:1)(cid:21)")
+        True
+        >>> tiene_texto_corrupto_cid("Factura normal 12345")
+        False
+        >>> tiene_texto_corrupto_cid("Texto normal con un (cid:1) ocasional")
+        False  # Solo 10% es CID, debajo del umbral
+    """
+    if not texto or len(texto.strip()) == 0:
+        return False
+
+    # Detectar patrón de códigos CID: (cid:NNN)
+    patron_cid = r'\(cid:\d+\)'
+    coincidencias_cid = re.findall(patron_cid, texto)
+
+    if not coincidencias_cid:
+        return False
+
+    # Calcular porcentaje de texto que son códigos CID
+    # Cada coincidencia representa un carácter corrupto
+    num_caracteres_cid = len(coincidencias_cid)
+
+    # Contar caracteres totales (excluyendo espacios)
+    texto_sin_espacios = texto.replace(' ', '').replace('\n', '').replace('\t', '')
+    num_caracteres_totales = len(texto_sin_espacios)
+
+    if num_caracteres_totales == 0:
+        return False
+
+    # Calcular porcentaje
+    porcentaje_cid = (num_caracteres_cid / num_caracteres_totales) * 100
+
+    # Si más del umbral% del texto son códigos CID, considerarlo corrupto
+    return porcentaje_cid >= umbral_porcentaje
+
+
+def detectar_texto_corrupto_en_pagina(pdf_page, umbral_cid: float = 10.0) -> bool:
+    """
+    Detecta si una página PDF tiene texto corrupto (códigos CID).
+
+    Args:
+        pdf_page: Página de pdfplumber
+        umbral_cid (float): Porcentaje mínimo de CID para considerar corrupto
+
+    Returns:
+        bool: True si la página tiene texto corrupto, False si es legible
+    """
+    try:
+        texto = pdf_page.extract_text()
+        if not texto:
+            return False
+
+        return tiene_texto_corrupto_cid(texto, umbral_cid)
+    except Exception:
+        return False

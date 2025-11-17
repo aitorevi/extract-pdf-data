@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from src.utils.data_cleaners import DataCleaner
 from src.utils.cif import CIF
-from src.utils.pdf_text_detector import tiene_texto_extraible
+from src.utils.pdf_text_detector import tiene_texto_extraible, detectar_texto_corrupto_en_pagina
 from src.utils.ocr_engine import OCREngine
 
 # Import opcional de LLM extractor (fallback si no hay plantilla o plantilla falla)
@@ -257,6 +257,10 @@ class PDFExtractor:
         """
         Valida que una plantilla tenga la estructura correcta.
 
+        Soporta dos tipos de campos:
+        1. Campos con coordenadas fijas (tipo: texto, fecha, numerico)
+        2. Campos con búsqueda por texto (tipo: busqueda_texto)
+
         Args:
             plantilla (Dict): Plantilla a validar
 
@@ -281,16 +285,41 @@ class PDFExtractor:
                 print(f"Campo {i} no es un diccionario")
                 return False
 
-            campos_campo = ['nombre', 'coordenadas', 'tipo']
-            for subcampo in campos_campo:
-                if subcampo not in campo:
-                    print(f"Campo {i} falta subcampo: {subcampo}")
+            # Verificar que tenga nombre y tipo
+            if 'nombre' not in campo:
+                print(f"Campo {i} falta subcampo: nombre")
+                return False
+
+            if 'tipo' not in campo:
+                print(f"Campo {i} falta subcampo: tipo")
+                return False
+
+            tipo_campo = campo.get('tipo', '')
+
+            # Validación específica según el tipo
+            if tipo_campo == 'busqueda_texto':
+                # Para búsqueda por texto: requiere patron_busqueda
+                if 'patron_busqueda' not in campo:
+                    print(f"Campo {i} tipo 'busqueda_texto' requiere 'patron_busqueda'")
                     return False
 
-            # Validar coordenadas
-            if not isinstance(campo['coordenadas'], list) or len(campo['coordenadas']) != 4:
-                print(f"Campo {i} tiene coordenadas inválidas")
-                return False
+                # area_busqueda es opcional, pero si existe debe ser válida
+                if 'area_busqueda' in campo:
+                    area = campo['area_busqueda']
+                    if not isinstance(area, list) or len(area) != 4:
+                        print(f"Campo {i} tiene area_busqueda inválida (debe ser [x0, top, x1, bottom])")
+                        return False
+
+            else:
+                # Para campos normales: requiere coordenadas
+                if 'coordenadas' not in campo:
+                    print(f"Campo {i} falta subcampo: coordenadas (requerido para tipo '{tipo_campo}')")
+                    return False
+
+                # Validar formato de coordenadas
+                if not isinstance(campo['coordenadas'], list) or len(campo['coordenadas']) != 4:
+                    print(f"Campo {i} tiene coordenadas inválidas (debe ser [x0, top, x1, bottom])")
+                    return False
 
         return True
 
@@ -317,7 +346,7 @@ class PDFExtractor:
 
                 pagina = pdf.pages[0]
 
-                # Detectar si el PDF tiene texto extraíble
+                # Detectar si el PDF tiene texto extraíble o corrupto
                 usa_ocr = False
                 if not tiene_texto_extraible(pagina):
                     if self.ocr_disponible:
@@ -325,6 +354,14 @@ class PDFExtractor:
                         usa_ocr = True
                     else:
                         print("  ⚠️ PDF sin texto extraíble y OCR no disponible")
+                        return None
+                elif detectar_texto_corrupto_en_pagina(pagina):
+                    # Texto extraíble pero corrupto (códigos CID)
+                    if self.ocr_disponible:
+                        print("  [OCR] PDF con texto corrupto (códigos CID), usando OCR...")
+                        usa_ocr = True
+                    else:
+                        print("  ⚠️ PDF con texto corrupto y OCR no disponible")
                         return None
 
                 # Probar cada plantilla
@@ -345,15 +382,28 @@ class PDFExtractor:
                         try:
                             bbox = tuple(coordenadas)
 
+                            # Obtener número de página del campo (default: página 1)
+                            num_pagina_campo = campo.get('pagina', 1)
+
+                            # Si el campo especifica una página diferente, cargarla
+                            if num_pagina_campo != 1:
+                                if num_pagina_campo <= len(pdf.pages):
+                                    pagina_identificacion = pdf.pages[num_pagina_campo - 1]
+                                else:
+                                    pagina_identificacion = pagina
+                                    num_pagina_campo = 1
+                            else:
+                                pagina_identificacion = pagina
+
                             # Extraer texto según disponibilidad
                             if usa_ocr:
                                 # Usar OCR para extraer de área específica
-                                texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=1)
+                                texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=num_pagina_campo)
                                 texto = texto.strip()
                                 metodo = "OCR"
                             else:
                                 # Extracción normal con pdfplumber
-                                area_recortada = pagina.crop(bbox)
+                                area_recortada = pagina_identificacion.crop(bbox)
                                 texto = area_recortada.extract_text() or ""
                                 texto = texto.strip()
                                 metodo = "directo"
@@ -363,7 +413,7 @@ class PDFExtractor:
                                 if not texto and self.ocr_disponible:
                                     try:
                                         print(f"    [FALLBACK] Área sin texto extraíble, intentando OCR...")
-                                        texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=1)
+                                        texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=num_pagina_campo)
                                         texto = texto.strip()
                                         metodo = "OCR (fallback)"
                                     except Exception as e_ocr:
@@ -452,6 +502,84 @@ class PDFExtractor:
         similitud = (coincidencias / max_len) * 100
 
         return similitud
+
+    def _buscar_texto_en_pdf(self, pdf_page: Any, patron_regex: str, area_busqueda: Optional[tuple] = None,
+                             ruta_pdf: str = None, pagina_num: int = 1, usa_ocr: bool = False) -> Optional[str]:
+        """
+        Busca texto en un PDF usando expresiones regulares.
+
+        Útil para campos que cambian de posición pero siempre tienen el mismo patrón de texto.
+        Ejemplo: "Base imponible: 1234.56" puede estar en diferentes posiciones según el contenido.
+
+        Args:
+            pdf_page: Página del PDF (objeto pdfplumber page)
+            patron_regex: Patrón de expresión regular para buscar
+                         Ejemplo: r"Base\s*imponible[:\s]+([\\d.,]+)" captura el número después de "Base imponible:"
+            area_busqueda: Tupla opcional (x0, top, x1, bottom) que limita el área de búsqueda
+                          Si es None, busca en toda la página
+            ruta_pdf: Ruta al PDF (necesaria si usa_ocr=True)
+            pagina_num: Número de página (necesario si usa_ocr=True)
+            usa_ocr: Si True, usa OCR para extraer el texto antes de buscar
+
+        Returns:
+            El primer grupo capturado del regex (entre paréntesis), o None si no encuentra coincidencia
+
+        Ejemplo de uso en plantilla JSON:
+        {
+            "nombre": "Base",
+            "tipo": "busqueda_texto",
+            "patron_busqueda": "Base\\s*imponible[:\\s]+([\\d.,]+)",
+            "area_busqueda": [0, 200, 595, 700],
+            "pagina": 1
+        }
+        """
+        try:
+            # Extraer texto del área especificada o de toda la página
+            if usa_ocr:
+                if not ruta_pdf:
+                    print("    Error: ruta_pdf es requerida para OCR en búsqueda de texto")
+                    return None
+
+                if area_busqueda:
+                    # Extraer de área específica con OCR
+                    texto = self.ocr.extraer_texto_area(ruta_pdf, area_busqueda, pagina_num=pagina_num)
+                else:
+                    # Extraer texto completo de la página con OCR
+                    texto = self.ocr.extraer_texto_completo(ruta_pdf, pagina_num=pagina_num)
+            else:
+                # Usar pdfplumber
+                if area_busqueda:
+                    # Extraer de área específica
+                    area_recortada = pdf_page.crop(area_busqueda)
+                    texto = area_recortada.extract_text() or ""
+                else:
+                    # Extraer texto completo de la página
+                    texto = pdf_page.extract_text() or ""
+
+            if not texto:
+                return None
+
+            # Buscar el patrón con regex
+            match = re.search(patron_regex, texto, re.IGNORECASE | re.MULTILINE)
+
+            if match:
+                # Si hay grupos capturados, devolver el primero
+                if match.groups():
+                    valor_encontrado = match.group(1).strip()
+                    print(f"    [Búsqueda texto] Encontrado: '{valor_encontrado}' usando patrón: {patron_regex[:50]}...")
+                    return valor_encontrado
+                else:
+                    # Si no hay grupos, devolver toda la coincidencia
+                    valor_encontrado = match.group(0).strip()
+                    print(f"    [Búsqueda texto] Encontrado: '{valor_encontrado}'")
+                    return valor_encontrado
+            else:
+                print(f"    [Búsqueda texto] No se encontró coincidencia para patrón: {patron_regex[:50]}...")
+                return None
+
+        except Exception as e:
+            print(f"    Error en búsqueda de texto: {e}")
+            return None
 
     def _extraer_cif_cliente(self, pdf: Any, plantilla: Dict, ruta_pdf: str = None, usa_ocr: bool = False) -> Optional[str]:
         """
@@ -724,7 +852,7 @@ class PDFExtractor:
                 # Procesar primera página (asumimos datos en primera página)
                 pagina = pdf.pages[0]
 
-                # Detectar si el PDF tiene texto extraíble
+                # Detectar si el PDF tiene texto extraíble o corrupto
                 usa_ocr = False
                 if not tiene_texto_extraible(pagina):
                     if self.ocr_disponible:
@@ -734,6 +862,15 @@ class PDFExtractor:
                     else:
                         print("  ⚠️ PDF sin texto extraíble y OCR no disponible")
                         raise Exception("PDF escaneado sin OCR disponible")
+                elif detectar_texto_corrupto_en_pagina(pagina):
+                    # Texto extraíble pero corrupto (códigos CID)
+                    if self.ocr_disponible:
+                        print("  [OCR] PDF con texto corrupto (códigos CID), usando OCR para extracción...")
+                        usa_ocr = True
+                        datos_factura['_UsaOCR'] = True
+                    else:
+                        print("  ⚠️ PDF con texto corrupto y OCR no disponible")
+                        raise Exception("PDF con texto corrupto sin OCR disponible")
                 else:
                     datos_factura['_UsaOCR'] = False
 
@@ -741,23 +878,85 @@ class PDFExtractor:
 
                 for campo in plantilla['campos']:
                     nombre_campo_plantilla = campo['nombre']
-                    coordenadas = campo['coordenadas']
                     tipo_campo = campo.get('tipo', 'texto')
 
                     try:
-                        # Extraer texto según disponibilidad
-                        bbox = tuple(coordenadas)  # (x1, y1, x2, y2)
+                        # Detectar si es búsqueda por texto (tipo especial)
+                        if tipo_campo == 'busqueda_texto':
+                            # Extraer usando búsqueda por regex
+                            patron_regex = campo.get('patron_busqueda')
+                            if not patron_regex:
+                                print(f"  Error: Campo '{nombre_campo_plantilla}' tipo 'busqueda_texto' sin 'patron_busqueda'")
+                                texto_extraido = None
+                            else:
+                                # Área de búsqueda opcional (si no se especifica, busca en toda la página)
+                                area_busqueda = campo.get('area_busqueda')
+                                if area_busqueda:
+                                    area_busqueda = tuple(area_busqueda)
 
-                        if usa_ocr:
-                            # Usar OCR para extraer de área específica
-                            texto_extraido = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=1)
+                                # Obtener número de página del campo (default: usar la página actual)
+                                num_pagina_campo = campo.get('pagina', 1)
+
+                                # Si el campo especifica una página diferente, cargarla
+                                if num_pagina_campo != 1:
+                                    # Cargar la página correcta (páginas son 0-indexed en pdfplumber)
+                                    if num_pagina_campo <= len(pdf.pages):
+                                        pagina_busqueda = pdf.pages[num_pagina_campo - 1]
+                                    else:
+                                        print(f"  Advertencia: página {num_pagina_campo} no existe, usando página 1")
+                                        pagina_busqueda = pagina
+                                        num_pagina_campo = 1
+                                else:
+                                    pagina_busqueda = pagina
+
+                                # Realizar búsqueda por texto
+                                texto_extraido = self._buscar_texto_en_pdf(
+                                    pdf_page=pagina_busqueda,
+                                    patron_regex=patron_regex,
+                                    area_busqueda=area_busqueda,
+                                    ruta_pdf=ruta_pdf,
+                                    pagina_num=num_pagina_campo,
+                                    usa_ocr=usa_ocr
+                                )
+
+                            # Para búsqueda de texto, determinar el tipo real para limpieza
+                            # Puede especificarse como "tipo_dato" en la plantilla
+                            tipo_dato = campo.get('tipo_dato', 'texto')
+                            valor_procesado = self.procesar_campo(texto_extraido, tipo_dato)
+
                         else:
-                            # Extracción normal con pdfplumber
-                            area_recortada = pagina.crop(bbox)
-                            texto_extraido = area_recortada.extract_text()
+                            # Extracción normal por coordenadas
+                            coordenadas = campo.get('coordenadas')
+                            if not coordenadas:
+                                print(f"  Error: Campo '{nombre_campo_plantilla}' sin coordenadas")
+                                texto_extraido = None
+                            else:
+                                bbox = tuple(coordenadas)  # (x1, y1, x2, y2)
 
-                        # Limpiar y procesar según tipo
-                        valor_procesado = self.procesar_campo(texto_extraido, tipo_campo)
+                                # Obtener número de página del campo (default: página 1)
+                                num_pagina_campo = campo.get('pagina', 1)
+
+                                # Si el campo especifica una página diferente, cargarla
+                                if num_pagina_campo != 1:
+                                    if num_pagina_campo <= len(pdf.pages):
+                                        pagina_extraccion = pdf.pages[num_pagina_campo - 1]
+                                    else:
+                                        print(f"  Advertencia: página {num_pagina_campo} no existe, usando página 1")
+                                        pagina_extraccion = pagina
+                                        num_pagina_campo = 1
+                                else:
+                                    pagina_extraccion = pagina
+
+                                if usa_ocr:
+                                    # Usar OCR para extraer de área específica
+                                    texto_extraido = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=num_pagina_campo)
+                                else:
+                                    # Extracción normal con pdfplumber
+                                    area_recortada = pagina_extraccion.crop(bbox)
+                                    texto_extraido = area_recortada.extract_text()
+
+                            # Limpiar y procesar según tipo
+                            valor_procesado = self.procesar_campo(texto_extraido, tipo_campo)
 
                         # Mapear nombre de campo de plantilla a nombre de columna estándar
                         nombre_columna = self.MAPEO_CAMPOS.get(nombre_campo_plantilla, nombre_campo_plantilla)
@@ -1122,6 +1321,13 @@ class PDFExtractor:
             nombre_mapeado = self.MAPEO_CAMPOS.get(nombre_campo, nombre_campo)
 
             if nombre_mapeado == 'NumFactura':
+                # Si el campo especifica una página, solo extraer de esa página
+                pagina_especifica = campo.get('pagina')
+                if pagina_especifica is not None and pagina_num is not None:
+                    if pagina_num != pagina_especifica:
+                        # No es la página correcta, retornar None
+                        return None
+
                 try:
                     coordenadas = campo['coordenadas']
                     bbox = tuple(coordenadas)
@@ -1291,7 +1497,7 @@ class PDFExtractor:
                 if not pdf.pages:
                     raise Exception("PDF sin páginas")
 
-                # Detectar si el PDF tiene texto extraíble (usar primera página como muestra)
+                # Detectar si el PDF tiene texto extraíble o corrupto (usar primera página como muestra)
                 usa_ocr = False
                 if not tiene_texto_extraible(pdf.pages[0]):
                     if self.ocr_disponible:
@@ -1300,6 +1506,14 @@ class PDFExtractor:
                     else:
                         print("  ⚠️ PDF sin texto extraíble y OCR no disponible")
                         raise Exception("PDF escaneado sin OCR disponible")
+                elif detectar_texto_corrupto_en_pagina(pdf.pages[0]):
+                    # Texto extraíble pero corrupto (códigos CID)
+                    if self.ocr_disponible:
+                        print("  [OCR] PDF con texto corrupto (códigos CID), usando OCR para extracción...")
+                        usa_ocr = True
+                    else:
+                        print("  ⚠️ PDF con texto corrupto y OCR no disponible")
+                        raise Exception("PDF con texto corrupto sin OCR disponible")
 
                 # Paso 1: Extraer NumFactura de cada página
                 print(f"  Analizando {len(pdf.pages)} página(s)...")
@@ -1379,27 +1593,79 @@ class PDFExtractor:
 
                     campos_extraidos_exitosamente = 0
 
-                    # Extraer todos los campos de la última página
+                    # Extraer todos los campos (respetando la página especificada en cada campo)
                     for campo in plantilla['campos']:
                         nombre_campo_plantilla = campo['nombre']
-                        coordenadas = campo['coordenadas']
                         tipo_campo = campo.get('tipo', 'texto')
 
                         try:
-                            bbox = tuple(coordenadas)
+                            # Determinar qué página usar para este campo
+                            # Si el campo especifica una página, usarla; si no, usar la última página del grupo
+                            pagina_campo = campo.get('pagina', None)
 
-                            if usa_ocr:
-                                # Usar OCR para extraer de área específica
-                                texto_extraido = self.ocr.extraer_texto_area(
-                                    ruta_pdf, bbox, pagina_num=num_pagina+1
-                                )
+                            if pagina_campo is not None:
+                                # El campo especifica una página específica (1-indexed)
+                                if pagina_campo > len(pdf.pages) or pagina_campo < 1:
+                                    print(f"    Error: Campo '{nombre_campo_plantilla}' especifica página {pagina_campo} que no existe (PDF tiene {len(pdf.pages)} páginas)")
+                                    texto_extraido = None
+                                    valor_procesado = ""
+                                else:
+                                    # Usar la página especificada
+                                    pagina_a_usar = pdf.pages[pagina_campo - 1]
+                                    num_pagina_a_usar = pagina_campo - 1  # 0-indexed
                             else:
-                                # Extracción normal con pdfplumber
-                                area_recortada = pagina.crop(bbox)
-                                texto_extraido = area_recortada.extract_text()
+                                # No especifica página, usar la última página del grupo
+                                pagina_a_usar = pagina
+                                num_pagina_a_usar = num_pagina
 
-                            # Limpiar y procesar según tipo
-                            valor_procesado = self.procesar_campo(texto_extraido, tipo_campo)
+                            # Detectar si es búsqueda por texto (tipo especial)
+                            if tipo_campo == 'busqueda_texto':
+                                # Extraer usando búsqueda por regex
+                                patron_regex = campo.get('patron_busqueda')
+                                if not patron_regex:
+                                    print(f"    Error: Campo '{nombre_campo_plantilla}' tipo 'busqueda_texto' sin 'patron_busqueda'")
+                                    texto_extraido = None
+                                else:
+                                    # Área de búsqueda opcional (si no se especifica, busca en toda la página)
+                                    area_busqueda = campo.get('area_busqueda')
+                                    if area_busqueda:
+                                        area_busqueda = tuple(area_busqueda)
+
+                                    # Realizar búsqueda por texto
+                                    texto_extraido = self._buscar_texto_en_pdf(
+                                        pdf_page=pagina_a_usar,
+                                        patron_regex=patron_regex,
+                                        area_busqueda=area_busqueda,
+                                        ruta_pdf=ruta_pdf,
+                                        pagina_num=num_pagina_a_usar+1,
+                                        usa_ocr=usa_ocr
+                                    )
+
+                                # Para búsqueda de texto, determinar el tipo real para limpieza
+                                tipo_dato = campo.get('tipo_dato', 'texto')
+                                valor_procesado = self.procesar_campo(texto_extraido, tipo_dato)
+
+                            else:
+                                # Extracción normal por coordenadas
+                                coordenadas = campo.get('coordenadas')
+                                if not coordenadas:
+                                    print(f"    Error: Campo '{nombre_campo_plantilla}' sin coordenadas")
+                                    texto_extraido = None
+                                else:
+                                    bbox = tuple(coordenadas)
+
+                                    if usa_ocr:
+                                        # Usar OCR para extraer de área específica
+                                        texto_extraido = self.ocr.extraer_texto_area(
+                                            ruta_pdf, bbox, pagina_num=num_pagina_a_usar+1
+                                        )
+                                    else:
+                                        # Extracción normal con pdfplumber
+                                        area_recortada = pagina_a_usar.crop(bbox)
+                                        texto_extraido = area_recortada.extract_text()
+
+                                # Limpiar y procesar según tipo
+                                valor_procesado = self.procesar_campo(texto_extraido, tipo_campo)
 
                             # Mapear nombre de campo
                             nombre_columna = self.MAPEO_CAMPOS.get(nombre_campo_plantilla, nombre_campo_plantilla)

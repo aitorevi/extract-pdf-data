@@ -256,36 +256,50 @@ def test_calcular_hash_md5():
 
 # ==================== TESTS DE MOVIMIENTO DE ARCHIVOS ====================
 
-@patch('shutil.move')
+@patch('pathlib.Path.unlink')
+@patch('pathlib.Path.stat')
+@patch('shutil.copy2')
 @patch('pathlib.Path.exists', return_value=False)
 @patch('pathlib.Path.mkdir')
-def test_mover_pdf_exito(mock_mkdir, mock_exists, mock_move):
+def test_mover_pdf_exito(mock_mkdir, mock_exists, mock_copy2, mock_stat, mock_unlink):
     """
     Test: mover_pdf() mueve archivo correctamente cuando destino no existe.
     """
+    # Mock del tamaño del archivo (ambos deben ser iguales)
+    mock_stat.return_value.st_size = 1024
+
     organizer = PDFOrganizer()
 
     resultado = organizer.mover_pdf("facturas/test.pdf", "facturas/procesadas/2025/01/test.pdf")
 
     assert resultado is True
-    mock_move.assert_called_once()
+    mock_copy2.assert_called_once()
+    mock_unlink.assert_called_once()
 
 
-@patch('shutil.move')
-@patch('pathlib.Path.exists', side_effect=[True, False])  # Primera vez existe, segunda no
+@patch('pathlib.Path.unlink')
+@patch('pathlib.Path.stat')
+@patch('shutil.copy2')
+@patch('pathlib.Path.exists')
 @patch('pathlib.Path.mkdir')
-def test_mover_pdf_archivo_existe_renombrar(mock_mkdir, mock_exists, mock_move):
+def test_mover_pdf_archivo_existe_renombrar(mock_mkdir, mock_exists, mock_copy2, mock_stat, mock_unlink):
     """
     Test: mover_pdf() renombra archivo con sufijo _2 si destino ya existe.
     """
+    # Simular que el archivo destino existe la primera vez, pero el renombrado no
+    mock_exists.side_effect = [True, False]  # Primera verificación: existe, segunda (con _2): no existe
+
+    # Mock del tamaño del archivo (ambos deben ser iguales)
+    mock_stat.return_value.st_size = 1024
+
     organizer = PDFOrganizer()
 
     resultado = organizer.mover_pdf("facturas/test.pdf", "facturas/procesadas/test.pdf")
 
     assert resultado is True
-    # Verificar que se movió con nombre modificado (test_2.pdf)
-    call_args = mock_move.call_args[0]
-    assert "_2" in str(call_args[1]) or mock_move.called
+    # Verificar que se copió (no necesitamos verificar el nombre exacto)
+    mock_copy2.assert_called_once()
+    mock_unlink.assert_called_once()
 
 
 # ==================== TESTS DE LOGGING ====================

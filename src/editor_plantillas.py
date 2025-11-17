@@ -761,6 +761,49 @@ class EditorPlantillas:
         print(f"Nombre proveedor: {nombre_proveedor}")
         print(f"CIF proveedor: {cif_proveedor}")
 
+        # Analizar páginas usadas por los campos capturados
+        paginas_usadas = set()
+        for nombre, campo_data in self.campos.items():
+            if campo_data:
+                paginas_usadas.add(campo_data['pagina'])
+
+        # Determinar si se debe usar extracción dinámica o páginas fijas
+        usar_paginas_fijas = False
+
+        if len(paginas_usadas) > 1:
+            # Múltiples páginas → SIEMPRE usar páginas fijas (necesario)
+            usar_paginas_fijas = True
+            print(f"Campos en múltiples páginas detectados: {sorted(p+1 for p in paginas_usadas)}")
+            print("Se guardarán con atributo 'pagina' (necesario para extracción correcta)")
+        else:
+            # Una sola página → preguntar al usuario
+            pagina_unica = list(paginas_usadas)[0] + 1 if paginas_usadas else 1
+            print(f"Todos los campos están en página {pagina_unica}")
+
+            respuesta = messagebox.askyesnocancel(
+                "Configuración de Páginas",
+                f"Todos los campos están en página {pagina_unica}.\n\n" +
+                "¿Cómo quieres configurar la extracción?\n\n" +
+                f"• SÍ → Páginas FIJAS (siempre extrae de página {pagina_unica})\n" +
+                "  Usar si las facturas SIEMPRE tienen el mismo número de páginas\n\n" +
+                "• NO → DINÁMICA (extrae de la ÚLTIMA página)\n" +
+                "  Usar si las facturas pueden tener diferente número de páginas\n" +
+                "  (Recomendado para la mayoría de casos)\n\n" +
+                "• Cancelar → Volver atrás",
+                parent=self.root
+            )
+
+            if respuesta is None:  # Cancelar
+                print("Guardado cancelado por usuario")
+                return
+
+            usar_paginas_fijas = respuesta
+
+            if usar_paginas_fijas:
+                print("Usuario eligió: Páginas FIJAS")
+            else:
+                print("Usuario eligió: Extracción DINÁMICA (última página)")
+
         # Crear lista de todos los campos (identificación + datos)
         campos_lista = []
 
@@ -769,40 +812,49 @@ class EditorPlantillas:
             nombre = campo_def['nombre']
             campo_data = self.campos[nombre]
             if campo_data:
-                campos_lista.append({
+                campo_json = {
                     "nombre": nombre,
                     "coordenadas": campo_data['coordenadas'],
-                    "pagina": campo_data['pagina'] + 1,  # Guardar en formato 1-indexed
                     "tipo": campo_def['tipo'],
                     "es_identificacion": True
-                })
+                }
+                # Solo añadir 'pagina' si se usan páginas fijas
+                if usar_paginas_fijas:
+                    campo_json["pagina"] = campo_data['pagina'] + 1  # Guardar en formato 1-indexed
+                campos_lista.append(campo_json)
 
         # Añadir campos de datos
         for campo_def in CAMPOS_PREDEFINIDOS:
             nombre = campo_def['nombre']
             campo_data = self.campos[nombre]
             if campo_data:
-                campos_lista.append({
+                campo_json = {
                     "nombre": nombre,
                     "coordenadas": campo_data['coordenadas'],
-                    "pagina": campo_data['pagina'] + 1,  # Guardar en formato 1-indexed
                     "tipo": campo_def['tipo'],
                     "es_identificacion": False
-                })
+                }
+                # Solo añadir 'pagina' si se usan páginas fijas
+                if usar_paginas_fijas:
+                    campo_json["pagina"] = campo_data['pagina'] + 1  # Guardar en formato 1-indexed
+                campos_lista.append(campo_json)
 
         # Añadir campos auxiliares
         for campo_def in CAMPOS_AUXILIARES:
             nombre = campo_def['nombre']
             campo_data = self.campos[nombre]
             if campo_data:
-                campos_lista.append({
+                campo_json = {
                     "nombre": nombre,
                     "coordenadas": campo_data['coordenadas'],
-                    "pagina": campo_data['pagina'] + 1,  # Guardar en formato 1-indexed
                     "tipo": campo_def['tipo'],
                     "es_identificacion": False,
                     "es_auxiliar": True
-                })
+                }
+                # Solo añadir 'pagina' si se usan páginas fijas
+                if usar_paginas_fijas:
+                    campo_json["pagina"] = campo_data['pagina'] + 1  # Guardar en formato 1-indexed
+                campos_lista.append(campo_json)
 
         print(f"Campos a guardar: {len(campos_lista)}")
 

@@ -57,8 +57,9 @@ class TestProviderIdentification:
         similitud = extractor._calcular_similitud("Homebed Spain", "Homebed")
         assert 50.0 < similitud < 100.0
 
+    @patch('src.pdf_extractor.tiene_texto_extraible', return_value=True)
     @patch('pdfplumber.open')
-    def test_identificar_proveedor_por_cif_exacto(self, mock_pdf_open, tmp_path):
+    def test_identificar_proveedor_por_cif_exacto(self, mock_pdf_open, mock_tiene_texto, tmp_path):
         """Test identificación por CIF exacto."""
         # Crear plantilla con CIF de identificación
         plantilla_dir = tmp_path / "plantillas"
@@ -111,8 +112,9 @@ class TestProviderIdentification:
 
         assert resultado == "homebed_spain_s.l."
 
+    @patch('src.pdf_extractor.tiene_texto_extraible', return_value=True)
     @patch('pdfplumber.open')
-    def test_identificar_proveedor_por_nombre_similitud(self, mock_pdf_open, tmp_path):
+    def test_identificar_proveedor_por_nombre_similitud(self, mock_pdf_open, mock_tiene_texto, tmp_path):
         """Test identificación por nombre con similitud >= 85%."""
         plantilla_dir = tmp_path / "plantillas"
         plantilla_dir.mkdir()
@@ -244,8 +246,9 @@ class TestProviderIdentification:
 
         assert resultado is None
 
+    @patch('src.pdf_extractor.tiene_texto_extraible', return_value=True)
     @patch('pdfplumber.open')
-    def test_identificar_proveedor_cif_o_nombre_suficiente(self, mock_pdf_open, tmp_path):
+    def test_identificar_proveedor_cif_o_nombre_suficiente(self, mock_pdf_open, mock_tiene_texto, tmp_path):
         """Test que CIF O Nombre es suficiente (no requiere ambos)."""
         plantilla_dir = tmp_path / "plantillas"
         plantilla_dir.mkdir()
@@ -297,8 +300,9 @@ class TestProviderIdentification:
         # Debería identificar solo con CIF
         assert resultado == "homebed_spain_s.l."
 
+    @patch('src.pdf_extractor.tiene_texto_extraible', return_value=True)
     @patch('pdfplumber.open')
-    def test_campos_identificacion_no_se_exportan(self, mock_pdf_open, tmp_path):
+    def test_campos_identificacion_no_se_exportan(self, mock_pdf_open, mock_tiene_texto, tmp_path):
         """Test que campos de identificación no aparecen en datos exportables."""
         plantilla_dir = tmp_path / "plantillas"
         plantilla_dir.mkdir()

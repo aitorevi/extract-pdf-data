@@ -1,8 +1,8 @@
 """
 Módulo para organizar archivos PDF procesados según su estado:
-- Facturas procesadas exitosamente → organizadas por fecha (mes) y proveedor
-- PDFs duplicados → carpeta de duplicados por trimestre
-- PDFs con errores → clasificados por tipo de error (posible factura vs no factura)
+- Facturas procesadas exitosamente -> organizadas por fecha (mes) y proveedor
+- PDFs duplicados -> carpeta de duplicados por trimestre
+- PDFs con errores -> clasificados por tipo de error (posible factura vs no factura)
 """
 
 import os
@@ -95,7 +95,7 @@ class PDFOrganizer:
                 with open(archivo_indice, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError) as e:
-                print(f"⚠️ ADVERTENCIA: Error al cargar índice {archivo_indice}: {e}")
+                print(f"[!] ADVERTENCIA: Error al cargar índice {archivo_indice}: {e}")
                 return self._crear_indice_vacio(año, trimestre)
         else:
             return self._crear_indice_vacio(año, trimestre)
@@ -123,7 +123,7 @@ class PDFOrganizer:
             with open(archivo_indice, 'w', encoding='utf-8') as f:
                 json.dump(datos, f, indent=2, ensure_ascii=False)
         except IOError as e:
-            print(f"❌ ERROR: No se pudo guardar índice {archivo_indice}: {e}")
+            print(f"[X] ERROR: No se pudo guardar indice {archivo_indice}: {e}")
 
     def es_duplicado(self, cif_proveedor: str, fecha_factura: str,
                     num_factura: str, año: int, trimestre: str) -> Optional[Dict]:
@@ -199,10 +199,10 @@ class PDFOrganizer:
 
         Returns:
             Tupla (trimestre, año) - ej: ("1T", "2025")
-            - Enero-Marzo → 1T
-            - Abril-Junio → 2T
-            - Julio-Septiembre → 3T
-            - Octubre-Diciembre → 4T
+            - Enero-Marzo -> 1T
+            - Abril-Junio -> 2T
+            - Julio-Septiembre -> 3T
+            - Octubre-Diciembre -> 4T
         """
         try:
             # Normalizar fecha a formato YYYY-MM-DD
@@ -232,7 +232,7 @@ class PDFOrganizer:
             return (trimestre, año)
 
         except Exception as e:
-            print(f"⚠️ ADVERTENCIA: Error al calcular trimestre desde fecha {fecha_factura}: {e}")
+            print(f"[!] ADVERTENCIA: Error al calcular trimestre desde fecha {fecha_factura}: {e}")
             return ("", "")
 
     def agregar_al_indice(self, año: int, trimestre: str, info_factura: Dict):
@@ -278,7 +278,7 @@ class PDFOrganizer:
                         if palabras_encontradas >= UMBRAL_PALABRAS_FACTURA:
                             break
         except Exception as e:
-            print(f"⚠️ ADVERTENCIA: Error al analizar contenido de {pdf_path}: {e}")
+            print(f"[!] ADVERTENCIA: Error al analizar contenido de {pdf_path}: {e}")
 
         es_probable_factura = palabras_encontradas >= UMBRAL_PALABRAS_FACTURA
         return es_probable_factura, palabras_encontradas
@@ -301,7 +301,7 @@ class PDFOrganizer:
                     md5_hash.update(chunk)
             return md5_hash.hexdigest()
         except IOError as e:
-            print(f"⚠️ ADVERTENCIA: Error al calcular hash de {archivo_path}: {e}")
+            print(f"[!] ADVERTENCIA: Error al calcular hash de {archivo_path}: {e}")
             return ""
 
     def mover_pdf(self, origen: str, destino: str) -> bool:
@@ -343,14 +343,14 @@ class PDFOrganizer:
                 origen_path.unlink()
                 return True
             else:
-                print(f"❌ ERROR: La copia no coincide en tamaño: {origen} → {destino}")
+                print(f"[X] ERROR: La copia no coincide en tamanio: {origen} -> {destino}")
                 # Eliminar copia fallida
                 if destino_path.exists():
                     destino_path.unlink()
                 return False
 
         except Exception as e:
-            print(f"❌ ERROR: No se pudo mover {origen} a {destino}: {e}")
+            print(f"[X] ERROR: No se pudo mover {origen} a {destino}: {e}")
             return False
 
     def registrar_operacion(self, tipo: str, nombre_archivo: str,
@@ -368,7 +368,7 @@ class PDFOrganizer:
         fecha_hora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         archivo_log = self.directorio_logs / f"file_operations_{datetime.now().strftime('%Y%m%d')}.log"
 
-        mensaje = f"{fecha_hora} | {tipo} | {nombre_archivo} | {origen} → {destino}"
+        mensaje = f"{fecha_hora} | {tipo} | {nombre_archivo} | {origen} -> {destino}"
         if detalles:
             mensaje += f" | {detalles}"
         mensaje += "\n"
@@ -377,7 +377,7 @@ class PDFOrganizer:
             with open(archivo_log, 'a', encoding='utf-8') as f:
                 f.write(mensaje)
         except IOError as e:
-            print(f"⚠️ ADVERTENCIA: No se pudo escribir en log: {e}")
+            print(f"[!] ADVERTENCIA: No se pudo escribir en log: {e}")
 
     def organizar_pdf(self, pdf_path: str, resultado_extraccion: Optional[Dict] = None) -> str:
         """
@@ -446,20 +446,20 @@ class PDFOrganizer:
                 detalles = f"CIF: {cif_proveedor}, Fecha: {fecha_factura}, NumFactura: {num_factura}"
                 self.registrar_operacion("DUPLICADO", nombre_archivo,
                                        str(pdf_path.parent), str(destino_dir), detalles)
-                print(f"  📋 Duplicado detectado: {nombre_archivo} → {destino_dir}")
+                print(f"  [DUP] Duplicado detectado: {nombre_archivo} -> {destino_dir}")
                 return str(destino)
             else:
                 # Si falla mover_pdf, usar shutil.move como fallback para no dejar archivos en por_procesar
-                print(f"  ⚠️ Fallo al copiar con verificación, usando movimiento directo...")
+                print(f"  [!] Fallo al copiar con verificacion, usando movimiento directo...")
                 try:
                     shutil.move(str(pdf_path), str(destino))
                     self.registrar_operacion("DUPLICADO_FALLBACK", nombre_archivo,
                                            str(pdf_path.parent), str(destino_dir),
                                            "Movido con fallback después de fallo en copia verificada")
-                    print(f"  📋 Duplicado movido (fallback): {nombre_archivo} → {destino_dir}")
+                    print(f"  [DUP] Duplicado movido (fallback): {nombre_archivo} -> {destino_dir}")
                     return str(destino)
                 except Exception as e:
-                    print(f"  ❌ ERROR CRÍTICO: No se pudo mover {nombre_archivo}: {e}")
+                    print(f"  [X] ERROR CRITICO: No se pudo mover {nombre_archivo}: {e}")
                     return str(pdf_path)
 
         else:
@@ -487,11 +487,11 @@ class PDFOrganizer:
                 detalles = f"Proveedor: {nombre_proveedor}, CIF: {cif_proveedor}"
                 self.registrar_operacion("EXITO", nombre_archivo,
                                        str(pdf_path.parent), str(destino_dir), detalles)
-                print(f"  ✓ Organizado: {nombre_archivo} → {destino_dir}")
+                print(f"  [OK] Organizado: {nombre_archivo} -> {destino_dir}")
                 return str(destino)
             else:
                 # Si falla mover_pdf, usar shutil.move como fallback para no dejar archivos en por_procesar
-                print(f"  ⚠️ Fallo al copiar con verificación, usando movimiento directo...")
+                print(f"  [!] Fallo al copiar con verificacion, usando movimiento directo...")
                 try:
                     destino_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), str(destino))
@@ -511,10 +511,10 @@ class PDFOrganizer:
                     self.registrar_operacion("EXITO_FALLBACK", nombre_archivo,
                                            str(pdf_path.parent), str(destino_dir),
                                            "Movido con fallback después de fallo en copia verificada")
-                    print(f"  ✓ Organizado (fallback): {nombre_archivo} → {destino_dir}")
+                    print(f"  [OK] Organizado (fallback): {nombre_archivo} -> {destino_dir}")
                     return str(destino)
                 except Exception as e:
-                    print(f"  ❌ ERROR CRÍTICO: No se pudo mover {nombre_archivo}: {e}")
+                    print(f"  [X] ERROR CRITICO: No se pudo mover {nombre_archivo}: {e}")
                     return str(pdf_path)
 
         return str(pdf_path)
@@ -535,14 +535,14 @@ class PDFOrganizer:
             destino = destino_dir / nombre_archivo
             tipo_log = "ERROR_POSIBLE_FACTURA"
             detalles = f"{num_palabras} palabras clave detectadas"
-            print(f"  ⚠️ Posible factura sin plantilla: {nombre_archivo} → {destino_dir}")
+            print(f"  ⚠️ Posible factura sin plantilla: {nombre_archivo} -> {destino_dir}")
         else:
             # Probablemente no es una factura
             destino_dir = self.directorio_errores / "probablemente_no_factura"
             destino = destino_dir / nombre_archivo
             tipo_log = "ERROR_NO_FACTURA"
             detalles = f"Solo {num_palabras} palabras clave encontradas"
-            print(f"  ❌ Probablemente no es factura: {nombre_archivo} → {destino_dir}")
+            print(f"  [X] Probablemente no es factura: {nombre_archivo} -> {destino_dir}")
 
         if self.mover_pdf(str(pdf_path), str(destino)):
             self.registrar_operacion(tipo_log, nombre_archivo,
@@ -550,17 +550,17 @@ class PDFOrganizer:
             return str(destino)
         else:
             # Si falla mover_pdf, usar shutil.move como fallback para no dejar archivos en por_procesar
-            print(f"  ⚠️ Fallo al copiar con verificación, usando movimiento directo...")
+            print(f"  [!] Fallo al copiar con verificacion, usando movimiento directo...")
             try:
                 destino_dir.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(pdf_path), str(destino))
                 self.registrar_operacion(f"{tipo_log}_FALLBACK", nombre_archivo,
                                        str(pdf_path.parent), str(destino_dir),
                                        f"{detalles} - Movido con fallback después de fallo en copia verificada")
-                print(f"  ✓ Movido (fallback): {nombre_archivo} → {destino_dir}")
+                print(f"  [OK] Movido (fallback): {nombre_archivo} -> {destino_dir}")
                 return str(destino)
             except Exception as e:
-                print(f"  ❌ ERROR CRÍTICO: No se pudo mover {nombre_archivo}: {e}")
+                print(f"  [X] ERROR CRITICO: No se pudo mover {nombre_archivo}: {e}")
                 return str(pdf_path)
 
         return str(pdf_path)

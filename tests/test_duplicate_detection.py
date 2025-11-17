@@ -20,8 +20,9 @@ from src.excel_exporter import ExcelExporter
 class TestDuplicateDetection:
     """Tests para detección de duplicados."""
 
+    @patch('src.pdf_extractor.tiene_texto_extraible', return_value=True)
     @patch('pdfplumber.open')
-    def test_detectar_duplicado_mismo_cif_num_fecha(self, mock_pdf_open, tmp_path):
+    def test_detectar_duplicado_mismo_cif_num_fecha(self, mock_pdf_open, mock_tiene_texto, tmp_path):
         """Test que detecta duplicado con mismo CIF, NumFactura y FechaFactura."""
         plantilla_dir = tmp_path / "plantillas"
         plantilla_dir.mkdir()
