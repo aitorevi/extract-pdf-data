@@ -239,14 +239,14 @@ class TestCasoEspecialT1ConAñoAnterior:
 
 
 class TestConversionFormatoTrimestre:
-    """Tests para conversión entre formatos de trimestre (1, 2, 3, 4) y (1T, 2T, 3T, 4T)."""
+    """Tests para conversión de formatos de trimestre para Excel."""
 
-    def test_convertir_numero_a_formato_t(self):
-        """Convierte número de trimestre a formato con T."""
-        assert PDFExtractor.formatear_trimestre(1) == "1T"
-        assert PDFExtractor.formatear_trimestre(2) == "2T"
-        assert PDFExtractor.formatear_trimestre(3) == "3T"
-        assert PDFExtractor.formatear_trimestre(4) == "4T"
+    def test_convertir_numero_a_formato_excel(self):
+        """Convierte número de trimestre a formato numérico para Excel."""
+        assert PDFExtractor.formatear_trimestre(1) == "1"
+        assert PDFExtractor.formatear_trimestre(2) == "2"
+        assert PDFExtractor.formatear_trimestre(3) == "3"
+        assert PDFExtractor.formatear_trimestre(4) == "4"
 
     def test_parsear_formato_t_a_numero(self):
         """Parsea formato con T a número de trimestre."""

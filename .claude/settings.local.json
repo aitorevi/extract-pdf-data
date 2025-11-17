@@ -5,6 +5,7 @@
       "Bash(git commit:*)",
       "Bash(git checkout:*)",
       "Bash(git pull:*)",
+<<<<<<< Updated upstream
       "Bash(if [ -d \"facturas/duplicados\" ])",
       "Bash(then find facturas/duplicados -name \"*.pdf\" -exec sh -c 'for f; do rel=\"\"${f#facturas/duplicados/}\"\"; dest=\"\"documentos/procesados/duplicados/$rel\"\"; mkdir -p \"\"$(dirname \"\"$dest\"\")\"\"; cp \"\"$f\"\" \"\"$dest\"\"; done' sh {} +)",
       "Bash(fi)",
@@ -12,6 +13,9 @@
       "Bash(then find facturas/errores -name \"*.pdf\" -exec sh -c 'for f; do rel=\"\"${f#facturas/errores/}\"\"; dest=\"\"documentos/procesados/errores/$rel\"\"; mkdir -p \"\"$(dirname \"\"$dest\"\")\"\"; cp \"\"$f\"\" \"\"$dest\"\"; done' sh {} +)",
       "Bash(awk:*)",
       "Bash(tree:*)"
+=======
+      "Bash(gh issue create:*)"
+>>>>>>> Stashed changes
     ],
     "deny": [],
     "ask": []

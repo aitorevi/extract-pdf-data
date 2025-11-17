@@ -109,7 +109,7 @@ class TestColumnStandardization:
 
             # Verificar valores
             assert datos['CIF'] == "B12345678"
-            assert datos['Trimestre'] == "Q1"
+            assert datos['Trimestre'] == "1"  # Ahora se guarda como número sin prefijo
             assert datos['Año'] == "2025"
 
     def test_campos_no_en_plantilla_quedan_vacios(self, tmp_path):
@@ -141,7 +141,8 @@ class TestColumnStandardization:
         )
         extractor.cargar_plantillas()
 
-        with patch('src.pdf_extractor.pdfplumber.open') as mock_pdf:
+        with patch('src.pdf_extractor.pdfplumber.open') as mock_pdf, \
+             patch('src.pdf_extractor.tiene_texto_extraible', return_value=True):
             mock_page = MagicMock()
             mock_page.crop.return_value.extract_text.return_value = "FAC-001"
             mock_pdf.return_value.__enter__.return_value.pages = [mock_page]
@@ -231,7 +232,7 @@ class TestColumnStandardization:
             {
                 'CIF': 'B12345678',
                 'FechaFactura': '01/01/2025',
-                'Trimestre': 'Q1',
+                'Trimestre': '1',  # Formato numérico para Excel
                 'Año': '2025',
                 'FechaVto': '',
                 'NumFactura': 'FAC-001',
@@ -348,7 +349,7 @@ class TestColumnStandardization:
             {
                 'CIF': 'B12345678',
                 'FechaFactura': '01/01/2025',
-                'Trimestre': 'Q1',
+                'Trimestre': '1',  # Formato numérico para Excel
                 'Año': '2025',
                 'FechaVto': '31/01/2025',
                 'NumFactura': 'FAC-001',
@@ -431,7 +432,8 @@ class TestIntegrationColumnStandardization:
         extractor.cargar_plantillas()
 
         # Mock de PDF
-        with patch('src.pdf_extractor.pdfplumber.open') as mock_pdf:
+        with patch('src.pdf_extractor.pdfplumber.open') as mock_pdf, \
+             patch('src.pdf_extractor.tiene_texto_extraible', return_value=True):
             mock_page = MagicMock()
 
             # Simular diferentes valores para diferentes campos
@@ -473,7 +475,7 @@ class TestIntegrationColumnStandardization:
 
             # Verificar valores
             assert df.iloc[0]['CIF'] == 'B12345678'
-            assert df.iloc[0]['Trimestre'] == 'Q1'
+            assert str(df.iloc[0]['Trimestre']) == '1'  # Formato numérico para Excel
             assert str(df.iloc[0]['Año']) == '2025'  # Pandas puede convertir a int
             assert df.iloc[0]['NumFactura'] == 'FAC-2025-001'
 

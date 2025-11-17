@@ -1,0 +1,24 @@
+# Extracción y procesamiento de PDFs
+pdfplumber>=0.10.0
+pdf2image>=1.16.0
+Pillow>=10.0.0
+
+# Procesamiento de datos
+pandas>=2.0.0
+openpyxl>=3.1.0
+
+# OCR (opcional pero recomendado para PDFs escaneados)
+pytesseract>=0.3.10
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# LLM para extracción automática (OPCIONAL - solo si quieres fallback con IA)
+# Descomenta las siguientes líneas si quieres usar GPT-4o mini como fallback:
+openai>=1.0.0
+python-dotenv>=1.0.0
+
+# Nota: El sistema funciona perfectamente sin las librerías de LLM
+# usando solo plantillas con coordenadas. Las librerías openai y python-dotenv
+# solo son necesarias si quieres habilitar extracción automática con IA.

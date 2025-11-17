@@ -55,3 +55,4 @@ plantillas/*.json
 
 # Logs
 *.log
+.env

@@ -48,6 +48,9 @@ class EditorPlantillas:
         self.seleccion_actual = None
         self.punto_inicio = None
         self.plantilla_cargada = plantilla_existente
+        self.zoom_level = 1.0  # Nivel de zoom (1.0 = 100%, 1.5 = 150%, etc.)
+        self.zoom_min = 0.5  # Zoom mínimo (50%)
+        self.zoom_max = 2.5  # Zoom máximo (250%)
 
         # Inicializar campos de identificación
         for campo_def in CAMPOS_IDENTIFICACION:
@@ -112,6 +115,28 @@ class EditorPlantillas:
         self.btn_siguiente = tk.Button(frame_navegacion, text="▶", command=self.pagina_siguiente,
                                        font=("Arial", 10, "bold"), width=3)
         self.btn_siguiente.pack(side=tk.LEFT, padx=2)
+
+        # Controles de zoom
+        frame_zoom = tk.Frame(frame_botones, bg="gray90")
+        frame_zoom.pack(side=tk.TOP, pady=10)
+
+        tk.Label(frame_zoom, text="Zoom:", bg="gray90", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=5)
+
+        self.btn_zoom_out = tk.Button(frame_zoom, text="-", command=self.zoom_out,
+                                      font=("Arial", 12, "bold"), width=3)
+        self.btn_zoom_out.pack(side=tk.LEFT, padx=2)
+
+        self.label_zoom = tk.Label(frame_zoom, text="100%",
+                                   bg="gray90", font=("Arial", 10))
+        self.label_zoom.pack(side=tk.LEFT, padx=5)
+
+        self.btn_zoom_in = tk.Button(frame_zoom, text="+", command=self.zoom_in,
+                                     font=("Arial", 12, "bold"), width=3)
+        self.btn_zoom_in.pack(side=tk.LEFT, padx=2)
+
+        self.btn_zoom_reset = tk.Button(frame_zoom, text="Reset", command=self.zoom_reset,
+                                        font=("Arial", 9), width=5)
+        self.btn_zoom_reset.pack(side=tk.LEFT, padx=5)
 
         # Label campo seleccionado
         self.label_seleccionado = tk.Label(frame_botones,
@@ -211,20 +236,20 @@ class EditorPlantillas:
             # Linux u otros: intentar usar poppler del sistema (en PATH)
             poppler_path = None
 
-        imagenes = convert_from_path(self.pdf_path, dpi=150, poppler_path=poppler_path)
+        # DPI aumentado de 150 a 200 para mejor calidad y visualización
+        imagenes = convert_from_path(self.pdf_path, dpi=200, poppler_path=poppler_path)
         self.total_paginas = len(imagenes)
         print(f"PDF tiene {self.total_paginas} página(s)")
 
-        # Guardar todas las imágenes sin procesar
-        self.imagenes_originales = imagenes
+        # Guardar todas las imágenes sin procesar (alta resolución)
+        self.imagenes_originales_full = imagenes
 
         # Cargar la primera página
-        self.imagen_original = imagenes[self.pagina_actual]
-        self.imagen = self.imagen_original.copy()
+        self.imagen_original_full = imagenes[self.pagina_actual]
 
-        # Calcular escala inicial
-        self.escala_x = self.imagen.width / self.pdf_width
-        self.escala_y = self.imagen.height / self.pdf_height
+        # Calcular escala base (de PDF points a píxeles de imagen full)
+        self.escala_base_x = self.imagen_original_full.width / self.pdf_width
+        self.escala_base_y = self.imagen_original_full.height / self.pdf_height
 
         # Calcular espacio disponible (dejando margen para UI)
         # Ancho: toda la ventana menos panel derecho (~350px) y márgenes (~50px)
@@ -232,25 +257,23 @@ class EditorPlantillas:
         # Alto: toda la ventana menos márgenes (~50px)
         espacio_alto = self.window_height - 50
 
-        # Redimensionar para que quepa en el espacio disponible (sin scroll)
-        if self.imagen.width > espacio_ancho or self.imagen.height > espacio_alto:
-            # Calcular ratio manteniendo proporción
-            ratio = min(espacio_ancho / self.imagen.width, espacio_alto / self.imagen.height)
-            new_width = int(self.imagen.width * ratio)
-            new_height = int(self.imagen.height * ratio)
+        # Calcular tamaño base para que quepa en pantalla
+        ratio_fit = 1.0
+        if self.imagen_original_full.width > espacio_ancho or self.imagen_original_full.height > espacio_alto:
+            ratio_fit = min(espacio_ancho / self.imagen_original_full.width,
+                           espacio_alto / self.imagen_original_full.height)
 
-            print(f"Redimensionando imagen: {self.imagen.width}x{self.imagen.height} → {new_width}x{new_height}")
-            print(f"  Espacio disponible: {espacio_ancho}x{espacio_alto}")
-            print(f"  Ratio aplicado: {ratio:.3f}")
+        # Tamaño base (100% zoom = imagen que cabe en pantalla)
+        self.base_width = int(self.imagen_original_full.width * ratio_fit)
+        self.base_height = int(self.imagen_original_full.height * ratio_fit)
+        self.ratio_fit = ratio_fit
 
-            self.imagen = self.imagen.resize((new_width, new_height), Image.Resampling.LANCZOS)
-            self.imagen_original = self.imagen_original.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        print(f"Imagen original: {self.imagen_original_full.width}x{self.imagen_original_full.height}")
+        print(f"Tamaño base (100%): {self.base_width}x{self.base_height}")
+        print(f"Ratio fit: {ratio_fit:.3f}")
 
-            # Actualizar escalas (crítico para mantener coordenadas precisas)
-            self.escala_x *= ratio
-            self.escala_y *= ratio
-
-            print(f"  Nuevas escalas: X={self.escala_x:.3f}, Y={self.escala_y:.3f}")
+        # Aplicar zoom inicial (1.0 = 100%)
+        self.aplicar_zoom()
 
         self.actualizar_controles_navegacion()
         self.redibujar_campos()
@@ -291,36 +314,67 @@ class EditorPlantillas:
             self.pagina_actual += 1
             self.cargar_pagina()
 
+    def zoom_in(self):
+        """Aumenta el zoom en 25%."""
+        new_zoom = self.zoom_level + 0.25
+        if new_zoom <= self.zoom_max:
+            self.zoom_level = new_zoom
+            self.aplicar_zoom()
+
+    def zoom_out(self):
+        """Disminuye el zoom en 25%."""
+        new_zoom = self.zoom_level - 0.25
+        if new_zoom >= self.zoom_min:
+            self.zoom_level = new_zoom
+            self.aplicar_zoom()
+
+    def zoom_reset(self):
+        """Resetea el zoom a 100%."""
+        self.zoom_level = 1.0
+        self.aplicar_zoom()
+
+    def aplicar_zoom(self):
+        """Aplica el nivel de zoom actual a la imagen."""
+        # Calcular nuevo tamaño con zoom
+        new_width = int(self.base_width * self.zoom_level)
+        new_height = int(self.base_height * self.zoom_level)
+
+        print(f"Aplicando zoom {self.zoom_level:.2f}x: {new_width}x{new_height}")
+
+        # Redimensionar desde la imagen original full para mantener calidad
+        self.imagen_original = self.imagen_original_full.resize(
+            (new_width, new_height), Image.Resampling.LANCZOS
+        )
+        self.imagen = self.imagen_original.copy()
+
+        # Actualizar escalas (crítico para coordenadas precisas)
+        self.escala_x = self.escala_base_x * self.ratio_fit * self.zoom_level
+        self.escala_y = self.escala_base_y * self.ratio_fit * self.zoom_level
+
+        print(f"  Escalas: X={self.escala_x:.3f}, Y={self.escala_y:.3f}")
+
+        # Actualizar label de zoom
+        self.label_zoom.config(text=f"{int(self.zoom_level * 100)}%")
+
+        # Actualizar estado de botones
+        self.btn_zoom_in.config(state=tk.NORMAL if self.zoom_level < self.zoom_max else tk.DISABLED)
+        self.btn_zoom_out.config(state=tk.NORMAL if self.zoom_level > self.zoom_min else tk.DISABLED)
+
+        # Redibujar
+        self.redibujar_campos()
+
     def cargar_pagina(self):
         """Carga y muestra la página actual."""
         print(f"Cargando página {self.pagina_actual + 1}/{self.total_paginas}...")
 
-        # Cargar imagen de la página actual
-        self.imagen_original = self.imagenes_originales[self.pagina_actual].copy()
-        self.imagen = self.imagen_original.copy()
+        # Cargar imagen full de la página actual
+        self.imagen_original_full = self.imagenes_originales_full[self.pagina_actual]
 
-        # Recalcular escalas
-        self.escala_x = self.imagen.width / self.pdf_width
-        self.escala_y = self.imagen.height / self.pdf_height
+        # Aplicar zoom actual
+        self.aplicar_zoom()
 
-        # Redimensionar si es necesario
-        espacio_ancho = self.window_width - 400
-        espacio_alto = self.window_height - 50
-
-        if self.imagen.width > espacio_ancho or self.imagen.height > espacio_alto:
-            ratio = min(espacio_ancho / self.imagen.width, espacio_alto / self.imagen.height)
-            new_width = int(self.imagen.width * ratio)
-            new_height = int(self.imagen.height * ratio)
-
-            self.imagen = self.imagen.resize((new_width, new_height), Image.Resampling.LANCZOS)
-            self.imagen_original = self.imagen_original.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-            self.escala_x *= ratio
-            self.escala_y *= ratio
-
-        # Actualizar controles y redibujar
+        # Actualizar controles
         self.actualizar_controles_navegacion()
-        self.redibujar_campos()
 
     def actualizar_lista_campos(self):
         """Actualiza la lista de campos con botones."""
@@ -707,6 +761,49 @@ class EditorPlantillas:
         print(f"Nombre proveedor: {nombre_proveedor}")
         print(f"CIF proveedor: {cif_proveedor}")
 
+        # Analizar páginas usadas por los campos capturados
+        paginas_usadas = set()
+        for nombre, campo_data in self.campos.items():
+            if campo_data:
+                paginas_usadas.add(campo_data['pagina'])
+
+        # Determinar si se debe usar extracción dinámica o páginas fijas
+        usar_paginas_fijas = False
+
+        if len(paginas_usadas) > 1:
+            # Múltiples páginas → SIEMPRE usar páginas fijas (necesario)
+            usar_paginas_fijas = True
+            print(f"Campos en múltiples páginas detectados: {sorted(p+1 for p in paginas_usadas)}")
+            print("Se guardarán con atributo 'pagina' (necesario para extracción correcta)")
+        else:
+            # Una sola página → preguntar al usuario
+            pagina_unica = list(paginas_usadas)[0] + 1 if paginas_usadas else 1
+            print(f"Todos los campos están en página {pagina_unica}")
+
+            respuesta = messagebox.askyesnocancel(
+                "Configuración de Páginas",
+                f"Todos los campos están en página {pagina_unica}.\n\n" +
+                "¿Cómo quieres configurar la extracción?\n\n" +
+                f"• SÍ → Páginas FIJAS (siempre extrae de página {pagina_unica})\n" +
+                "  Usar si las facturas SIEMPRE tienen el mismo número de páginas\n\n" +
+                "• NO → DINÁMICA (extrae de la ÚLTIMA página)\n" +
+                "  Usar si las facturas pueden tener diferente número de páginas\n" +
+                "  (Recomendado para la mayoría de casos)\n\n" +
+                "• Cancelar → Volver atrás",
+                parent=self.root
+            )
+
+            if respuesta is None:  # Cancelar
+                print("Guardado cancelado por usuario")
+                return
+
+            usar_paginas_fijas = respuesta
+
+            if usar_paginas_fijas:
+                print("Usuario eligió: Páginas FIJAS")
+            else:
+                print("Usuario eligió: Extracción DINÁMICA (última página)")
+
         # Crear lista de todos los campos (identificación + datos)
         campos_lista = []
 
@@ -715,40 +812,49 @@ class EditorPlantillas:
             nombre = campo_def['nombre']
             campo_data = self.campos[nombre]
             if campo_data:
-                campos_lista.append({
+                campo_json = {
                     "nombre": nombre,
                     "coordenadas": campo_data['coordenadas'],
-                    "pagina": campo_data['pagina'] + 1,  # Guardar en formato 1-indexed
                     "tipo": campo_def['tipo'],
                     "es_identificacion": True
-                })
+                }
+                # Solo añadir 'pagina' si se usan páginas fijas
+                if usar_paginas_fijas:
+                    campo_json["pagina"] = campo_data['pagina'] + 1  # Guardar en formato 1-indexed
+                campos_lista.append(campo_json)
 
         # Añadir campos de datos
         for campo_def in CAMPOS_PREDEFINIDOS:
             nombre = campo_def['nombre']
             campo_data = self.campos[nombre]
             if campo_data:
-                campos_lista.append({
+                campo_json = {
                     "nombre": nombre,
                     "coordenadas": campo_data['coordenadas'],
-                    "pagina": campo_data['pagina'] + 1,  # Guardar en formato 1-indexed
                     "tipo": campo_def['tipo'],
                     "es_identificacion": False
-                })
+                }
+                # Solo añadir 'pagina' si se usan páginas fijas
+                if usar_paginas_fijas:
+                    campo_json["pagina"] = campo_data['pagina'] + 1  # Guardar en formato 1-indexed
+                campos_lista.append(campo_json)
 
         # Añadir campos auxiliares
         for campo_def in CAMPOS_AUXILIARES:
             nombre = campo_def['nombre']
             campo_data = self.campos[nombre]
             if campo_data:
-                campos_lista.append({
+                campo_json = {
                     "nombre": nombre,
                     "coordenadas": campo_data['coordenadas'],
-                    "pagina": campo_data['pagina'] + 1,  # Guardar en formato 1-indexed
                     "tipo": campo_def['tipo'],
                     "es_identificacion": False,
                     "es_auxiliar": True
-                })
+                }
+                # Solo añadir 'pagina' si se usan páginas fijas
+                if usar_paginas_fijas:
+                    campo_json["pagina"] = campo_data['pagina'] + 1  # Guardar en formato 1-indexed
+                campos_lista.append(campo_json)
 
         print(f"Campos a guardar: {len(campos_lista)}")
 
