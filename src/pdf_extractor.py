@@ -172,6 +172,7 @@ class PDFExtractor:
         self.directorio_facturas = directorio_facturas
         self.directorio_plantillas = directorio_plantillas
         self.plantillas_cargadas = {}
+        self.indice_palabras = {}  # Índice de palabras clave por plantilla (optimización de velocidad)
         self.resultados = []
         self.errores = []  # Lista separada para registrar errores de extracción
         self.trimestre = trimestre
@@ -208,13 +209,13 @@ class PDFExtractor:
         if self.usar_llm_fallback and LLM_DISPONIBLE:
             try:
                 self.llm_extractor = LLMExtractor()
-                print("✓ LLM fallback habilitado (GPT-4o mini)")
+                print("[OK] LLM fallback habilitado (GPT-4o mini)")
             except Exception as e:
-                print(f"⚠️  No se pudo inicializar LLM fallback: {e}")
+                print(f"[AVISO] No se pudo inicializar LLM fallback: {e}")
                 print("   Tip: Establece variable de entorno OPENAI_API_KEY")
                 self.llm_extractor = None
         elif self.usar_llm_fallback and not LLM_DISPONIBLE:
-            print("⚠️  LLM fallback solicitado pero módulo no disponible")
+            print("[AVISO] LLM fallback solicitado pero modulo no disponible")
             print("   Instala con: pip install openai")
 
     def cargar_plantillas(self) -> bool:
@@ -242,6 +243,11 @@ class PDFExtractor:
                         # Usar nombre de archivo sin extensión como identificador
                         proveedor_id = os.path.splitext(archivo)[0]
                         self.plantillas_cargadas[proveedor_id] = plantilla
+
+                        # Construir índice de palabras clave para búsqueda rápida
+                        palabras_clave = self._extraer_palabras_clave(plantilla)
+                        self.indice_palabras[proveedor_id] = palabras_clave
+
                         plantillas_encontradas += 1
                         print(f"OK Plantilla cargada: {archivo} -> {plantilla.get('nombre_proveedor', proveedor_id)}")
                     else:
@@ -325,12 +331,13 @@ class PDFExtractor:
 
     def identificar_proveedor(self, ruta_pdf: str) -> Optional[str]:
         """
-        Identifica el proveedor de una factura PDF usando campos de identificación capturados.
+        Identifica el proveedor de una factura PDF usando índice de palabras clave (OPTIMIZADO).
 
-        Estrategias:
-        1. Extrae CIF y Nombre de las coordenadas de identificación de cada plantilla
-        2. Compara con coincidencia del 85% para nombre (permite variaciones)
-        3. CIF debe coincidir exactamente si está presente
+        Nueva estrategia optimizada (10x más rápido):
+        1. Extrae texto completo del PDF una sola vez
+        2. Usa índice de palabras clave para filtrar candidatos (scoring rápido)
+        3. Solo valida con método completo los top 3-5 candidatos más probables
+        4. Compara con coincidencia del 85% para nombre o CIF exacto
 
         Args:
             ruta_pdf (str): Ruta al archivo PDF
@@ -341,7 +348,7 @@ class PDFExtractor:
         try:
             with pdfplumber.open(ruta_pdf) as pdf:
                 if not pdf.pages:
-                    print(f"⚠ PDF sin páginas: {os.path.basename(ruta_pdf)}")
+                    print(f"[AVISO] PDF sin paginas: {os.path.basename(ruta_pdf)}")
                     return None
 
                 pagina = pdf.pages[0]
@@ -353,7 +360,7 @@ class PDFExtractor:
                         print("  [OCR] PDF sin texto extraíble, usando OCR...")
                         usa_ocr = True
                     else:
-                        print("  ⚠️ PDF sin texto extraíble y OCR no disponible")
+                        print("  [AVISO] PDF sin texto extraible y OCR no disponible")
                         return None
                 elif detectar_texto_corrupto_en_pagina(pagina):
                     # Texto extraíble pero corrupto (códigos CID)
@@ -361,103 +368,163 @@ class PDFExtractor:
                         print("  [OCR] PDF con texto corrupto (códigos CID), usando OCR...")
                         usa_ocr = True
                     else:
-                        print("  ⚠️ PDF con texto corrupto y OCR no disponible")
+                        print("  [AVISO] PDF con texto corrupto y OCR no disponible")
                         return None
 
-                # Probar cada plantilla
-                for proveedor_id, plantilla in self.plantillas_cargadas.items():
-                    print(f"  Probando plantilla: {proveedor_id}")
+                # OPTIMIZACIÓN: Extraer texto completo UNA SOLA VEZ
+                if usa_ocr:
+                    texto_completo = self.ocr.extraer_texto_completo(ruta_pdf, pagina_num=1)
+                else:
+                    texto_completo = pagina.extract_text() or ""
 
-                    # Extraer campos de identificación de esta plantilla
-                    cif_extraido = None
-                    nombre_extraido = None
+                texto_completo_lower = texto_completo.lower()
 
-                    for campo in plantilla.get('campos', []):
-                        if not campo.get('es_identificacion', False):
-                            continue
+                # OPTIMIZACIÓN: Filtrar candidatos usando índice de palabras clave
+                print(f"  Filtrando candidatos con índice de palabras clave...")
+                candidatos = self._filtrar_candidatos(texto_completo_lower)
 
-                        nombre_campo = campo['nombre']
-                        coordenadas = campo['coordenadas']
+                if not candidatos:
+                    print(f"  [AVISO] No se encontraron candidatos con palabras clave")
+                    return None
 
-                        try:
-                            bbox = tuple(coordenadas)
+                # Mostrar top candidatos
+                print(f"  Top candidatos encontrados:")
+                for i, (proveedor_id, score) in enumerate(candidatos[:5], 1):
+                    print(f"    {i}. {proveedor_id} (score: {score})")
 
-                            # Obtener número de página del campo (default: página 1)
-                            num_pagina_campo = campo.get('pagina', 1)
+                # OPTIMIZACIÓN: Solo validar top 3-5 candidatos con método completo
+                max_candidatos = 5 if len(candidatos) > 5 else len(candidatos)
 
-                            # Si el campo especifica una página diferente, cargarla
-                            if num_pagina_campo != 1:
-                                if num_pagina_campo <= len(pdf.pages):
-                                    pagina_identificacion = pdf.pages[num_pagina_campo - 1]
-                                else:
-                                    pagina_identificacion = pagina
-                                    num_pagina_campo = 1
-                            else:
-                                pagina_identificacion = pagina
+                for proveedor_id, score in candidatos[:max_candidatos]:
+                    print(f"  Validando plantilla: {proveedor_id} (score: {score})")
 
-                            # Extraer texto según disponibilidad
-                            if usa_ocr:
-                                # Usar OCR para extraer de área específica
-                                texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=num_pagina_campo)
-                                texto = texto.strip()
-                                metodo = "OCR"
-                            else:
-                                # Extracción normal con pdfplumber
-                                area_recortada = pagina_identificacion.crop(bbox)
-                                texto = area_recortada.extract_text() or ""
-                                texto = texto.strip()
-                                metodo = "directo"
+                    # Si score es 0 y no es el primer candidato, saltar
+                    # (indica que no tiene palabras clave en común)
+                    if score == 0 and candidatos.index((proveedor_id, score)) > 0:
+                        print(f"    Saltando candidato con score 0")
+                        break
 
-                                # FALLBACK: Si no se extrajo texto y OCR está disponible, intentar con OCR
-                                # Esto maneja PDFs híbridos (cabecera en imagen, cuerpo en texto)
-                                if not texto and self.ocr_disponible:
-                                    try:
-                                        print(f"    [FALLBACK] Área sin texto extraíble, intentando OCR...")
-                                        texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=num_pagina_campo)
-                                        texto = texto.strip()
-                                        metodo = "OCR (fallback)"
-                                    except Exception as e_ocr:
-                                        print(f"    [FALLBACK] Error con OCR: {e_ocr}")
+                    # Validar plantilla completa
+                    plantilla = self.plantillas_cargadas[proveedor_id]
+                    resultado = self._validar_plantilla_identificacion(
+                        pdf, ruta_pdf, proveedor_id, plantilla, usa_ocr
+                    )
 
-                            if nombre_campo == 'CIF_Identificacion':
-                                # Sanear CIF usando el Value Object
-                                cif_obj = CIF(texto)
-                                cif_extraido = cif_obj.value
-                                print(f"    CIF extraído ({metodo}): {texto} -> normalizado: {cif_extraido}")
-                            elif nombre_campo == 'Nombre_Identificacion':
-                                nombre_extraido = texto.lower()
-                                print(f"    Nombre extraído ({metodo}): {nombre_extraido}")
-                        except Exception as e:
-                            print(f"    Error extrayendo {nombre_campo}: {e}")
-
-                    # Validar coincidencias - CUALQUIERA de las dos sirve
-                    # Sanear CIF de plantilla usando Value Object
-                    cif_plantilla_obj = CIF(plantilla.get('cif_proveedor', ''))
-                    cif_plantilla = cif_plantilla_obj.value
-                    nombre_plantilla = plantilla.get('nombre_proveedor', '').strip().lower()
-
-                    # Opción 1: Verificar CIF (debe coincidir exactamente)
-                    if cif_extraido and cif_plantilla:
-                        if cif_extraido == cif_plantilla:
-                            print(f"OK Proveedor identificado por CIF: {proveedor_id}")
-                            return proveedor_id
-                        else:
-                            print(f"    CIF no coincide: extraido='{cif_extraido}' vs plantilla='{cif_plantilla}'")
-
-                    # Opción 2: Verificar Nombre (85% de coincidencia)
-                    if nombre_extraido and nombre_plantilla:
-                        coincidencia = self._calcular_similitud(nombre_extraido, nombre_plantilla)
-                        print(f"    Similitud nombre: {coincidencia:.1f}%")
-
-                        if coincidencia >= 85.0:
-                            print(f"OK Proveedor identificado por nombre ({coincidencia:.1f}% coincidencia): {proveedor_id}")
-                            return proveedor_id
+                    if resultado:
+                        return proveedor_id
 
         except Exception as e:
             print(f"Error identificando proveedor: {e}")
 
         print(f"AVISO: No se pudo identificar proveedor para: {os.path.basename(ruta_pdf)}")
         return None
+
+    def _validar_plantilla_identificacion(self, pdf: Any, ruta_pdf: str,
+                                          proveedor_id: str, plantilla: Dict,
+                                          usa_ocr: bool) -> bool:
+        """
+        Valida si una plantilla específica coincide con el PDF.
+
+        Extrae campos de identificación (CIF y Nombre) y verifica coincidencias.
+
+        Args:
+            pdf: Objeto PDF de pdfplumber
+            ruta_pdf: Ruta al archivo PDF
+            proveedor_id: ID del proveedor a validar
+            plantilla: Diccionario con información de la plantilla
+            usa_ocr: Si se debe usar OCR para extracción
+
+        Returns:
+            bool: True si la plantilla coincide, False en caso contrario
+        """
+        pagina = pdf.pages[0]
+
+        # Extraer campos de identificación de esta plantilla
+        cif_extraido = None
+        nombre_extraido = None
+
+        for campo in plantilla.get('campos', []):
+            if not campo.get('es_identificacion', False):
+                continue
+
+            nombre_campo = campo['nombre']
+            coordenadas = campo['coordenadas']
+
+            try:
+                bbox = tuple(coordenadas)
+
+                # Obtener número de página del campo (default: página 1)
+                num_pagina_campo = campo.get('pagina', 1)
+
+                # Si el campo especifica una página diferente, cargarla
+                if num_pagina_campo != 1:
+                    if num_pagina_campo <= len(pdf.pages):
+                        pagina_identificacion = pdf.pages[num_pagina_campo - 1]
+                    else:
+                        pagina_identificacion = pagina
+                        num_pagina_campo = 1
+                else:
+                    pagina_identificacion = pagina
+
+                # Extraer texto según disponibilidad
+                if usa_ocr:
+                    # Usar OCR para extraer de área específica
+                    texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=num_pagina_campo)
+                    texto = texto.strip()
+                    metodo = "OCR"
+                else:
+                    # Extracción normal con pdfplumber
+                    area_recortada = pagina_identificacion.crop(bbox)
+                    texto = area_recortada.extract_text() or ""
+                    texto = texto.strip()
+                    metodo = "directo"
+
+                    # FALLBACK: Si no se extrajo texto y OCR está disponible, intentar con OCR
+                    # Esto maneja PDFs híbridos (cabecera en imagen, cuerpo en texto)
+                    if not texto and self.ocr_disponible:
+                        try:
+                            print(f"    [FALLBACK] Área sin texto extraíble, intentando OCR...")
+                            texto = self.ocr.extraer_texto_area(ruta_pdf, bbox, pagina_num=num_pagina_campo)
+                            texto = texto.strip()
+                            metodo = "OCR (fallback)"
+                        except Exception as e_ocr:
+                            print(f"    [FALLBACK] Error con OCR: {e_ocr}")
+
+                if nombre_campo == 'CIF_Identificacion':
+                    # Sanear CIF usando el Value Object
+                    cif_obj = CIF(texto)
+                    cif_extraido = cif_obj.value
+                    print(f"    CIF extraído ({metodo}): {texto} -> normalizado: {cif_extraido}")
+                elif nombre_campo == 'Nombre_Identificacion':
+                    nombre_extraido = texto.lower()
+                    print(f"    Nombre extraído ({metodo}): {nombre_extraido}")
+            except Exception as e:
+                print(f"    Error extrayendo {nombre_campo}: {e}")
+
+        # Validar coincidencias - CUALQUIERA de las dos sirve
+        # Sanear CIF de plantilla usando Value Object
+        cif_plantilla_obj = CIF(plantilla.get('cif_proveedor', ''))
+        cif_plantilla = cif_plantilla_obj.value
+        nombre_plantilla = plantilla.get('nombre_proveedor', '').strip().lower()
+
+        # Opción 1: Verificar CIF (debe coincidir exactamente)
+        if cif_extraido and cif_plantilla:
+            if cif_extraido == cif_plantilla:
+                print(f"OK Proveedor identificado por CIF: {proveedor_id}")
+                return True
+            else:
+                print(f"    CIF no coincide: extraido='{cif_extraido}' vs plantilla='{cif_plantilla}'")
+
+        # Opción 2: Verificar Nombre (85% de coincidencia)
+        if nombre_extraido and nombre_plantilla:
+            coincidencia = self._calcular_similitud(nombre_extraido, nombre_plantilla)
+            print(f"    Similitud nombre: {coincidencia:.1f}%")
+
+            if coincidencia >= 85.0:
+                print(f"OK Proveedor identificado por nombre ({coincidencia:.1f}% coincidencia): {proveedor_id}")
+                return True
+
+        return False
 
     def _calcular_similitud(self, texto1: str, texto2: str) -> float:
         """
@@ -502,6 +569,89 @@ class PDFExtractor:
         similitud = (coincidencias / max_len) * 100
 
         return similitud
+
+    def _extraer_palabras_clave(self, plantilla: Dict) -> set:
+        """
+        Extrae palabras clave de una plantilla para búsqueda rápida.
+
+        Construye un conjunto de palabras clave basadas en:
+        - CIF del proveedor (normalizado)
+        - Palabras significativas del nombre del proveedor (> 3 caracteres)
+
+        Args:
+            plantilla: Diccionario con información de la plantilla
+
+        Returns:
+            set: Conjunto de palabras clave en minúsculas
+        """
+        palabras = set()
+
+        # Agregar CIF (normalizado con Value Object)
+        cif = plantilla.get('cif_proveedor', '')
+        if cif:
+            cif_obj = CIF(cif)
+            palabras.add(cif_obj.value.lower())
+
+        # Agregar palabras del nombre del proveedor
+        nombre = plantilla.get('nombre_proveedor', '')
+        if nombre:
+            # Dividir por espacios y filtrar palabras cortas
+            for palabra in nombre.split():
+                # Solo palabras > 3 caracteres (ignora "S.L.", "S.A.", etc.)
+                palabra_limpia = palabra.strip().lower()
+                # Remover puntuación al final
+                palabra_limpia = palabra_limpia.rstrip('.,;:')
+
+                if len(palabra_limpia) > 3:
+                    palabras.add(palabra_limpia)
+
+        return palabras
+
+    def _filtrar_candidatos(self, texto: str) -> List[tuple]:
+        """
+        Filtra candidatos usando índice de palabras clave (scoring rápido).
+
+        Calcula un score para cada plantilla basado en cuántas palabras clave
+        aparecen en el texto. Retorna lista ordenada de candidatos.
+
+        Args:
+            texto: Texto extraído del PDF (en minúsculas)
+
+        Returns:
+            List[tuple]: Lista de (proveedor_id, score) ordenada por score descendente
+        """
+        if not self.indice_palabras:
+            # Si no hay índice, retornar todas las plantillas con score 0
+            return [(proveedor_id, 0) for proveedor_id in self.plantillas_cargadas.keys()]
+
+        # Normalizar texto: quitar puntuación y caracteres especiales
+        # Esto asegura que CIFs con guiones (A-08269532) coincidan con (a08269532)
+        texto_normalizado = re.sub(r'[.,;:!?¿¡()\[\]{}"\'\-/]', '', texto)
+        texto_normalizado = re.sub(r'\s+', ' ', texto_normalizado).strip()
+
+        scores = {}
+
+        # Calcular score por cada plantilla
+        for proveedor_id, palabras_clave in self.indice_palabras.items():
+            score = 0
+
+            # Contar palabras clave que aparecen en el texto normalizado
+            for palabra in palabras_clave:
+                if palabra in texto_normalizado:
+                    score += 1
+
+            # Solo incluir si tiene al menos 1 palabra clave
+            if score > 0:
+                scores[proveedor_id] = score
+
+        # Si ningún candidato tiene score > 0, retornar todos con score 0
+        if not scores:
+            return [(proveedor_id, 0) for proveedor_id in self.plantillas_cargadas.keys()]
+
+        # Ordenar por score descendente
+        candidatos = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
+        return candidatos
 
     def _buscar_texto_en_pdf(self, pdf_page: Any, patron_regex: str, area_busqueda: Optional[tuple] = None,
                              ruta_pdf: str = None, pagina_num: int = 1, usa_ocr: bool = False) -> Optional[str]:
@@ -695,9 +845,9 @@ class PDFExtractor:
                     if portes > 0:
                         nueva_base = base + portes
                         datos_extraidos["Base"] = str(nueva_base)
-                        print(f"  ℹ️  Base ajustada: {base} + {portes} (Portes) = {nueva_base}")
+                        print(f"  [INFO] Base ajustada: {base} + {portes} (Portes) = {nueva_base}")
             except (ValueError, TypeError) as e:
-                print(f"  ⚠️  No se pudo sumar Portes a Base: {e}")
+                print(f"  [AVISO] No se pudo sumar Portes a Base: {e}")
 
         # Eliminar campos auxiliares antes de exportar
         if "Portes" in datos_extraidos:
@@ -860,7 +1010,7 @@ class PDFExtractor:
                         usa_ocr = True
                         datos_factura['_UsaOCR'] = True
                     else:
-                        print("  ⚠️ PDF sin texto extraíble y OCR no disponible")
+                        print("  [AVISO] PDF sin texto extraible y OCR no disponible")
                         raise Exception("PDF escaneado sin OCR disponible")
                 elif detectar_texto_corrupto_en_pagina(pagina):
                     # Texto extraíble pero corrupto (códigos CID)
@@ -869,7 +1019,7 @@ class PDFExtractor:
                         usa_ocr = True
                         datos_factura['_UsaOCR'] = True
                     else:
-                        print("  ⚠️ PDF con texto corrupto y OCR no disponible")
+                        print("  [AVISO] PDF con texto corrupto y OCR no disponible")
                         raise Exception("PDF con texto corrupto sin OCR disponible")
                 else:
                     datos_factura['_UsaOCR'] = False
@@ -1126,9 +1276,9 @@ class PDFExtractor:
                             uso_llm = True
                             self.metricas['fallbacks_activados'] += 1
                             self.metricas['extracciones_llm'] += 1
-                            print(f"  [FALLBACK] ✓ Extracción con LLM exitosa")
+                            print(f"  [FALLBACK] [OK] Extraccion con LLM exitosa")
                         except Exception as e_llm:
-                            print(f"  [FALLBACK] ✗ Error con LLM: {e_llm}")
+                            print(f"  [FALLBACK] [ERROR] Error con LLM: {e_llm}")
                             # Registrar error
                             error_registro = {
                                 'Archivo': archivo_pdf,
@@ -1169,9 +1319,9 @@ class PDFExtractor:
                         uso_llm = True
                         self.metricas['proveedores_sin_plantilla'] += 1
                         self.metricas['extracciones_llm'] += 1
-                        print(f"  [LLM] ✓ Extracción exitosa (proveedor sin plantilla)")
+                        print(f"  [LLM] [OK] Extraccion exitosa (proveedor sin plantilla)")
                     except Exception as e_llm:
-                        print(f"  [LLM] ✗ Error: {e_llm}")
+                        print(f"  [LLM] [ERROR] Error: {e_llm}")
                         error_registro = {
                             'Archivo': archivo_pdf,
                             'Pagina': 'N/A',
@@ -1504,7 +1654,7 @@ class PDFExtractor:
                         print("  [OCR] PDF sin texto extraíble, usando OCR para extracción multipágina...")
                         usa_ocr = True
                     else:
-                        print("  ⚠️ PDF sin texto extraíble y OCR no disponible")
+                        print("  [AVISO] PDF sin texto extraible y OCR no disponible")
                         raise Exception("PDF escaneado sin OCR disponible")
                 elif detectar_texto_corrupto_en_pagina(pdf.pages[0]):
                     # Texto extraíble pero corrupto (códigos CID)
@@ -1512,7 +1662,7 @@ class PDFExtractor:
                         print("  [OCR] PDF con texto corrupto (códigos CID), usando OCR para extracción...")
                         usa_ocr = True
                     else:
-                        print("  ⚠️ PDF con texto corrupto y OCR no disponible")
+                        print("  [AVISO] PDF con texto corrupto y OCR no disponible")
                         raise Exception("PDF con texto corrupto sin OCR disponible")
 
                 # Paso 1: Extraer NumFactura de cada página

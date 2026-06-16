@@ -99,6 +99,33 @@ class TestCleanDate:
         assert DataCleaner.clean_date("1 de octubre de 2025") == "01/10/2025"
         assert DataCleaner.clean_date("15 de enero de 2024") == "15/01/2024"
 
+    def test_clean_date_formato_puntos_yyyy(self):
+        """Test fecha con puntos en formato DD.MM.YYYY."""
+        assert DataCleaner.clean_date("15.01.2024") == "15/01/2024"
+        assert DataCleaner.clean_date("31.12.2025") == "31/12/2025"
+
+    def test_clean_date_formato_puntos_yy(self):
+        """Test fecha con puntos en formato DD.MM.YY (caso Dolz)."""
+        assert DataCleaner.clean_date("17.11.25") == "17/11/2025"
+        assert DataCleaner.clean_date("01.01.24") == "01/01/2024"
+
+    def test_clean_date_formato_puntos_con_espacios(self):
+        """Test fecha con puntos y espacios: 17 . 11 . 25."""
+        assert DataCleaner.clean_date("17 . 11 . 25") == "17/11/2025"
+        assert DataCleaner.clean_date("1 . 1 . 2024") == "01/01/2024"
+
+    def test_clean_date_formato_mes_abreviado_con_punto(self):
+        """Test fecha con mes abreviado seguido de punto: 17 dic. 2025."""
+        assert DataCleaner.clean_date("17 dic. 2025") == "17/12/2025"
+        assert DataCleaner.clean_date("1 ene. 2024") == "01/01/2024"
+        assert DataCleaner.clean_date("31 jul. 2025") == "31/07/2025"
+        assert DataCleaner.clean_date("15 oct. 2024") == "15/10/2024"
+
+    def test_clean_date_formato_mes_abreviado_con_punto_mayusculas(self):
+        """Test fecha con mes abreviado con punto en mayúsculas."""
+        assert DataCleaner.clean_date("17 DIC. 2025") == "17/12/2025"
+        assert DataCleaner.clean_date("17 Dic. 2025") == "17/12/2025"
+
 
 @pytest.mark.unit
 class TestCleanNumeric:

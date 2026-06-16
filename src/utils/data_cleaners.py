@@ -90,9 +90,9 @@ class DataCleaner:
         Limpia y normaliza campos de fecha al formato DD/MM/YYYY.
 
         Soporta múltiples formatos de entrada:
-        - DD/MM/YYYY, DD-MM-YYYY
-        - YYYY/MM/DD, YYYY-MM-DD
-        - DD/MM/YY, DD-MM-YY
+        - DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
+        - YYYY/MM/DD, YYYY-MM-DD, YYYY.MM.DD
+        - DD/MM/YY, DD-MM-YY, DD.MM.YY
         - Formato textual español largo: "1 de octubre de 2025"
         - Formato textual español corto: "31 jul 2025", "15 oct 2024"
         - Meses completos y abreviados (ene, feb, mar, etc.)
@@ -109,6 +109,8 @@ class DataCleaner:
             "15/01/2024"
             >>> DataCleaner.clean_date("15/01/24")
             "15/01/2024"
+            >>> DataCleaner.clean_date("17.11.25")
+            "17/11/2025"
             >>> DataCleaner.clean_date("Fecha: 15/01/2024")
             "15/01/2024"
             >>> DataCleaner.clean_date("1 de octubre de 2025")
@@ -158,12 +160,13 @@ class DataCleaner:
                 except ValueError:
                     pass  # Fecha inválida, continuar con otros métodos
 
-        # Patrón 2: "día mes año" - formato corto (31 jul 2025, 15 oct 2024, etc.)
-        patron_corto = r'(\d{1,2})\s+(\w+)\s+(\d{4})'
+        # Patrón 2: "día mes año" - formato corto (31 jul 2025, 17 dic. 2025, etc.)
+        # El patrón captura opcionalmente un punto después del mes
+        patron_corto = r'(\d{1,2})\s+(\w+)\.?\s+(\d{4})'
         match = re.search(patron_corto, texto.lower())
         if match:
             dia = int(match.group(1))
-            mes_texto = match.group(2)
+            mes_texto = match.group(2).rstrip('.')  # Remover punto si existe
             año = int(match.group(3))
 
             if mes_texto in meses_es:
@@ -175,18 +178,20 @@ class DataCleaner:
                 except ValueError:
                     pass  # Fecha inválida, continuar con otros métodos
 
-        # Eliminar espacios alrededor de separadores de fecha (/ y -)
-        # Esto maneja casos como "30/ 9/2025" o "30 / 9 / 2025"
-        texto = re.sub(r'\s*([/-])\s*', r'\1', texto)
+        # Eliminar espacios alrededor de separadores de fecha (/, -, .)
+        # Esto maneja casos como "30/ 9/2025" o "30 / 9 / 2025" o "17 . 11 . 25"
+        texto = re.sub(r'\s*([/.-])\s*', r'\1', texto)
 
         # Intentar parsear diferentes formatos de fecha
         formatos = [
             '%d/%m/%Y',      # DD/MM/YYYY
             '%d-%m-%Y',      # DD-MM-YYYY
+            '%d.%m.%Y',      # DD.MM.YYYY
             '%Y/%m/%d',      # YYYY/MM/DD
             '%Y-%m-%d',      # YYYY-MM-DD
             '%d/%m/%y',      # DD/MM/YY
             '%d-%m-%y',      # DD-MM-YY
+            '%d.%m.%y',      # DD.MM.YY
         ]
 
         for formato in formatos:
@@ -198,9 +203,12 @@ class DataCleaner:
                 continue
 
         # Si no se puede parsear directamente, intentar extraer con regex
+        # Nota: El patrón de año de 2 dígitos se omite intencionalmente del regex
+        # para evitar falsos positivos (ej: "2024-03-15" capturando "24-03-15")
+        # Las fechas con año de 2 dígitos se manejan directamente con strptime arriba
         patrones_fecha = [
-            r'\d{1,2}[/-]\d{1,2}[/-]\d{4}',  # DD/MM/YYYY o DD-MM-YYYY
-            r'\d{4}[/-]\d{1,2}[/-]\d{1,2}',  # YYYY/MM/DD o YYYY-MM-DD
+            r'\d{1,2}[/.-]\d{1,2}[/.-]\d{4}',  # DD/MM/YYYY o DD-MM-YYYY o DD.MM.YYYY
+            r'\d{4}[/.-]\d{1,2}[/.-]\d{1,2}',  # YYYY/MM/DD o YYYY-MM-DD o YYYY.MM.DD
         ]
 
         for patron in patrones_fecha:
@@ -227,11 +235,11 @@ class DataCleaner:
             texto_procesado = re.sub(r'([a-zA-Z]+)(\d+)', r'\1 \2', texto_procesado)
 
             # Intentar parsear formato textual español corto con el texto procesado
-            patron_corto = r'(\d{1,2})\s+(\w+)\s+(\d{4})'
+            patron_corto = r'(\d{1,2})\s+(\w+)\.?\s+(\d{4})'
             match = re.search(patron_corto, texto_procesado.lower())
             if match:
                 dia = int(match.group(1))
-                mes_texto = match.group(2)
+                mes_texto = match.group(2).rstrip('.')  # Remover punto si existe
                 año = int(match.group(3))
 
                 if mes_texto in meses_es:
